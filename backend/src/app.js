@@ -1,0 +1,12 @@
+const express = require('express')
+const cors = require('cors')
+const app = express()
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
+app.use(express.json())
+app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
+app.use('/api/auth', require('./routes/auth'))
+app.use('/api/products', require('./routes/products'))
+app.use('/api/orders', require('./routes/orders'))
+app.use('/api/payments', require('./routes/payments'))
+app.use((_, res) => res.status(404).json({ message: 'Route not found.' }))
+module.exports = app

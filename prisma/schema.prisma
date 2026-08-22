@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  SUPER_ADMIN
+  OUTLET_MANAGER
+  OUTLET_STAFF
+  KITCHEN_STAFF
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  ACCEPTED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  phone         String?
+  role          Role      @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  orders        Order[]
+  managedOutlet Outlet?   @relation("OutletManager")
+  staffOutlet   Outlet?   @relation("OutletStaff", fields: [outletId], references: [id])
+  outletId      String?
+  addresses     Address[]
+}
+
+model Address {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  type         String   @default("HOME") // HOME, WORK, OTHER
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  pincode      String
+  isDefault    Boolean  @default(false)
+}
+
+model Outlet {
+  id            String    @id @default(cuid())
+  name          String
+  address       String
+  phone         String
+  email         String
+  latitude      Float?
+  longitude     Float?
+  openingTime   String    // HH:mm
+  closingTime   String    // HH:mm
+  isActive      Boolean   @default(true)
+  
+  // Relations
+  manager       User?     @relation("OutletManager", fields: [managerId], references: [id])
+  managerId     String?   @unique
+  staff         User[]    @relation("OutletStaff")
+  inventory     Inventory[]
+  orders        Order[]
+  products      OutletProduct[]
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  image       String?
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  products    Product[]
+}
+
+model Product {
+  id            String    @id @default(cuid())
+  name          String
+  description   String
+  basePrice     Decimal   @db.Decimal(10, 2)
+  image         String?
+  isVeg         Boolean   @default(false)
+  categoryId    String
+  category      Category  @relation(fields: [categoryId], references: [id])
+  isActive      Boolean   @default(true)
+  isFeatured    Boolean   @default(false)
+  prepTime      Int?      // In minutes
+  
+  // Relations
+  variants      ProductVariant[]
+  addons        ProductAddon[]
+  outlets       OutletProduct[]
+  orderItems    OrderItem[]
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  name      String   // e.g., Small, Medium, Large
+  price     Decimal  @db.Decimal(10, 2)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  orderItems OrderItem[]
+}
+
+model Addon {
+  id        String   @id @default(cuid())
+  name      String
+  price     Decimal  @db.Decimal(10, 2)
+  category  String?  // e.g., Toppings, Extra Cheese
+  products  ProductAddon[]
+  orderItemAddons OrderItemAddon[]
+}
+
+model ProductAddon {
+  productId String
+  addonId   String
+  product   Product @relation(fields: [productId], references: [id])
+  addon     Addon   @relation(fields: [addonId], references: [id])
+  @@id([productId, addonId])
+}
+
+model OutletProduct {
+  outletId  String
+  productId String
+  isAvailable Boolean @default(true)
+  outlet    Outlet  @relation(fields: [outletId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+  @@id([outletId, productId])
+}
+
+model Inventory {
+  id           String   @id @default(cuid())
+  outletId     String
+  name         String   // Ingredient name
+  quantity     Float
+  unit         String   // kg, ltr, units
+  minStock     Float
+  outlet       Outlet   @relation(fields: [outletId], references: [id])
+  transactions StockTransaction[]
+}
+
+model StockTransaction {
+  id          String    @id @default(cuid())
+  inventoryId String
+  quantity    Float
+  type        String    // IN, OUT, WASTE, ADJUSTMENT
+  reason      String?
+  createdAt   DateTime  @default(now())
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique // Human readable e.g., ORD-12345
+  customerId      String?
+  customer        User?         @relation(fields: [customerId], references: [id])
+  outletId        String
+  outlet          Outlet        @relation(fields: [outletId], references: [id])
+  status          OrderStatus   @default(PENDING_PAYMENT)
+  orderType       OrderType     @default(TAKEAWAY)
+  
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  taxAmount       Decimal       @db.Decimal(10, 2)
+  discountAmount  Decimal       @db.Decimal(10, 2) @default(0)
+  payableAmount   Decimal       @db.Decimal(10, 2)
+  
+  paymentStatus   PaymentStatus @default(CREATED)
+  paymentMethod   String?       // UPI, CARD, WALLET
+  paymentId       String?       // Gateway reference
+  
+  couponId        String?
+  coupon          Coupon?       @relation(fields: [couponId], references: [id])
+  
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  items           OrderItem[]
+  statusHistory   OrderStatusHistory[]
+}
+
+model OrderItem {
+  id            String   @id @default(cuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id])
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id])
+  variantId     String?
+  variant       ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity      Int
+  unitPrice     Decimal  @db.Decimal(10, 2)
+  totalPrice    Decimal  @db.Decimal(10, 2)
+  
+  addons        OrderItemAddon[]
+}
+
+model OrderItemAddon {
+  id          String    @id @default(cuid())
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+  addonId     String
+  addon       Addon     @relation(fields: [addonId], references: [id])
+  price       Decimal   @db.Decimal(10, 2)
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id])
+  status    OrderStatus
+  comment   String?
+  createdAt DateTime    @default(now())
+}
+
+model Coupon {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  description   String?
+  discountType  String    // PERCENTAGE, FIXED
+  discountValue Decimal   @db.Decimal(10, 2)
+  minOrderAmount Decimal  @db.Decimal(10, 2) @default(0)
+  maxDiscount   Decimal?  @db.Decimal(10, 2)
+  startDate     DateTime
+  endDate       DateTime
+  usageLimit    Int?
+  usedCount     Int       @default(0)
+  isActive      Boolean   @default(true)
+  orders        Order[]
+}
