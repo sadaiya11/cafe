@@ -1,0 +1,18 @@
+# robots.txt for Bun Maska Cafe
+User-agent: *
+Allow: /
+Allow: /product
+Allow: /product/*
+Allow: /offers
+Allow: /about
+Allow: /contact
+
+# Prevent indexing of private account / transaction routes
+Disallow: /cart
+Disallow: /checkout
+Disallow: /orders
+Disallow: /profile
+Disallow: /login
+
+# Sitemap location
+Sitemap: https://bunmaskacafe.com/sitemap.xml

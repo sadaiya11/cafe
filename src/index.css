@@ -1,33 +1,32 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #e2e8f0;
+  background-color: #020817;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 30%),
+    linear-gradient(135deg, #020817 0%, #0f172a 35%, #111827 100%);
+}
+
 * {
   box-sizing: border-box;
 }
-html {
-  scroll-behavior: smooth;
-}
-body {
-  margin: 0;
-  background: #fff9ed;
-  color: #161616;
-  font-family: Outfit, sans-serif;
-}
-main { min-height: calc(100vh - 130px); }
-button,
-input,
-select {
-  font: inherit;
-}
-.hero { background: #ffcf3a; }
-.active {
-  color: #e5261f;
-}
-::selection { background: #ffcf3a; color: #161616; }
-.menu-heading { display: flex; align-items: end; justify-content: space-between; gap: 2rem; }
-.menu-note { display: flex; align-items: center; gap: .7rem; border: 1px solid #e7dccb; border-radius: 1rem; background: #fff; padding: .8rem 1rem; color: #76665d; font-size: .78rem; line-height: 1.25; }
-.menu-note svg { color: #b5462f; }
-.menu-note b { color: #4a2b21; }
-@media (max-width: 640px) { .menu-heading { align-items: flex-start; flex-direction: column; } .menu-note { display: none; } }
-.display-tight { font-family: Anton, Impact, sans-serif; font-weight: 400; letter-spacing: -.035em; text-transform: uppercase; }
-.tape { background: repeating-linear-gradient(-45deg, #161616 0 10px, #ffcf3a 10px 20px); }

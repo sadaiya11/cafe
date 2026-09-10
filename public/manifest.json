@@ -1,0 +1,16 @@
+{
+  "name": "Bun Maska Café",
+  "short_name": "BunMaskaCafe",
+  "description": "Fresh artisanal bun maska, Irani chai, gourmet coffee & snacks.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

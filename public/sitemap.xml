@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Core Static Pages -->
+  <url>
+    <loc>https://bunmaskacafe.com/</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://bunmaskacafe.com/dashboard</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://bunmaskacafe.com/product</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://bunmaskacafe.com/offers</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bunmaskacafe.com/about</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://bunmaskacafe.com/contact</loc>
+    <lastmod>2026-09-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Product Detail Pages -->
+  <url><loc>https://bunmaskacafe.com/product/mango-special-menu</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/signature-chicken-shawarma</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/italian-classics</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/creamy-chicken-pasta</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/grilled-chicken-platter</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/margherita-pizza</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/fruit-salad</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/chocolate-lava-cake</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/classic-cheesecake</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/strawberry-ice-cream</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/blueberry-pancake-stack</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/classic-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/crispy-chicken-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/double-cheese-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/bbq-bacon-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/spicy-jalapeno-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/mushroom-swiss-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/seafood-feast</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/garlic-butter-prawns</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/grilled-salmon</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/crispy-fish-and-chips</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/lemon-herb-shrimp-pasta</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmaskacafe.com/product/spicy-seafood-rice</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+</urlset>
