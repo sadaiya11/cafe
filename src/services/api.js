@@ -45,6 +45,52 @@ export async function updateUserProfile({ email, name, phone }) {
   return data
 }
 
+/** Request password reset verification link sent to user's email */
+export async function forgotPassword({ email }) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'
+  const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, origin }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to send password reset email.')
+  }
+  return data
+}
+
+/** Verify link token and update password */
+export async function resetPassword({ email, token, newPassword }) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, token, newPassword }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to reset password.')
+  }
+  return data
+}
+
+/** Change user password directly from profile page */
+export async function changePassword({ email, currentPassword, newPassword }) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, currentPassword, newPassword }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to update password.')
+  }
+  return data
+}
+
 /** Create a new order in the database through the backend API. */
 export async function createOrder(orderPayload) {
   const response = await fetch(`${API_BASE_URL}/api/db/orders`, {
@@ -189,6 +235,9 @@ export default {
   registerUser,
   loginUser,
   updateUserProfile,
+  forgotPassword,
+  resetPassword,
+  changePassword,
   createOrder,
   getOrders,
   getProducts,

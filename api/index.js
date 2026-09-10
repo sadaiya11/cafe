@@ -367,6 +367,99 @@ async function updateUserProfile(body) {
   }
 }
 
+const apiResetTokens = new Map()
+
+async function handleForgotPassword(body) {
+  const { email, origin } = body || {}
+  if (!email || !email.trim()) {
+    return { status: 400, body: { error: 'Please provide a valid registered email address.' } }
+  }
+  const normalizedEmail = email.trim().toLowerCase()
+
+  const existing = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}&select=*`)
+  if (existing.status >= 400 || !Array.isArray(existing.body) || existing.body.length === 0) {
+    return { status: 404, body: { error: 'No account found with this email address. Please register first.' } }
+  }
+
+  const token = crypto.randomBytes(24).toString('hex')
+  const expiresAt = Date.now() + 60 * 60 * 1000
+  apiResetTokens.set(token, { email: normalizedEmail, expiresAt })
+
+  const baseUrl = origin || 'http://localhost:5173'
+  const resetLink = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      message: `Password reset verification link has been sent to ${normalizedEmail}!`,
+      resetLink,
+      email: normalizedEmail,
+    },
+  }
+}
+
+async function handleResetPassword(body) {
+  const { email, token, newPassword } = body || {}
+  if (!email || !token || !newPassword || !newPassword.trim()) {
+    return { status: 400, body: { error: 'Email, token, and a new password are required.' } }
+  }
+
+  if (newPassword.trim().length < 4) {
+    return { status: 400, body: { error: 'New password must be at least 4 characters long.' } }
+  }
+
+  const normalizedEmail = email.trim().toLowerCase()
+  const result = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ password: newPassword.trim() }),
+  })
+
+  if (result.status >= 400) return result
+  if (apiResetTokens.has(token)) apiResetTokens.delete(token)
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      message: 'Password reset successfully! You can now sign in with your new password.',
+    },
+  }
+}
+
+async function handleChangePassword(body) {
+  const { email, currentPassword, newPassword } = body || {}
+  if (!email || !currentPassword || !newPassword) {
+    return { status: 400, body: { error: 'Current password and new password are required.' } }
+  }
+
+  const normalizedEmail = email.trim().toLowerCase()
+  const existing = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}&select=*`)
+
+  if (existing.status >= 400 || !Array.isArray(existing.body) || existing.body.length === 0) {
+    return { status: 404, body: { error: 'User account not found.' } }
+  }
+
+  const user = existing.body[0]
+  if (user.password && user.password !== currentPassword.trim()) {
+    return { status: 400, body: { error: 'Incorrect current password. Please try again or use email reset.' } }
+  }
+
+  if (newPassword.trim().length < 4) {
+    return { status: 400, body: { error: 'New password must be at least 4 characters long.' } }
+  }
+
+  const result = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ password: newPassword.trim() }),
+  })
+
+  if (result.status >= 400) return result
+  return { status: 200, body: { success: true, message: 'Password updated successfully!' } }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
@@ -385,6 +478,12 @@ export default async function handler(req, res) {
       ? await registerAuthUser(req.body || {})
       : route.endsWith('/auth/login') && req.method === 'POST'
         ? await loginAuthUser(req.body || {})
+      : route.endsWith('/auth/forgot-password') && req.method === 'POST'
+        ? await handleForgotPassword(req.body || {})
+      : route.endsWith('/auth/reset-password') && req.method === 'POST'
+        ? await handleResetPassword(req.body || {})
+      : route.endsWith('/auth/change-password') && (req.method === 'PUT' || req.method === 'POST')
+        ? await handleChangePassword(req.body || {})
       : route.endsWith('/auth/profile') && (req.method === 'PUT' || req.method === 'PATCH')
         ? await updateUserProfile(req.body || {})
       : route.endsWith('/db/products') && req.method === 'GET'

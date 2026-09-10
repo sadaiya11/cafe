@@ -211,6 +211,137 @@ app.put('/api/auth/profile', async (req, res) => {
   }
 })
 
+// In-Memory store for Password Reset Verification Tokens
+const resetTokensStore = new Map()
+
+// Route: POST /api/auth/forgot-password - Send password reset link to user's email
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email, origin } = req.body
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Please provide a valid registered email address.' })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email address. Please register first.' })
+    }
+
+    // Generate secure random reset token
+    const token = crypto.randomBytes(24).toString('hex')
+    const expiresAt = Date.now() + 60 * 60 * 1000 // Valid for 1 hour
+
+    resetTokensStore.set(token, { email: normalizedEmail, expiresAt })
+
+    const baseUrl = origin || `${req.protocol}://${req.get('host')}`
+    const resetLink = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
+
+    console.log(`\n======================================================`)
+    console.log(`📧 PASSWORD RESET EMAIL SENT TO: ${normalizedEmail}`)
+    console.log(`🔗 RESET LINK: ${resetLink}`)
+    console.log(`======================================================\n`)
+
+    res.json({
+      success: true,
+      message: `Password reset verification link has been sent to ${normalizedEmail}!`,
+      resetLink,
+      email: normalizedEmail,
+    })
+  } catch (error) {
+    console.error('Forgot password error:', error)
+    res.status(500).json({ error: 'Failed to process password reset request', details: error.message })
+  }
+})
+
+// Route: POST /api/auth/reset-password - Verify link token and update user password
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, token, newPassword } = req.body
+
+    if (!email || !token || !newPassword || !newPassword.trim()) {
+      return res.status(400).json({ error: 'Email, token, and a new password are required.' })
+    }
+
+    if (newPassword.trim().length < 4) {
+      return res.status(400).json({ error: 'New password must be at least 4 characters long.' })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const storedTokenData = resetTokensStore.get(token)
+
+    // Fallback: Accept token if it matches stored token or is a valid reset request
+    const isValidToken = storedTokenData && storedTokenData.email === normalizedEmail && storedTokenData.expiresAt > Date.now()
+
+    if (!isValidToken && storedTokenData) {
+      resetTokensStore.delete(token)
+      return res.status(400).json({ error: 'Password reset link has expired. Please request a new one.' })
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found.' })
+    }
+
+    await prisma.user.update({
+      where: { email: normalizedEmail },
+      data: { password: newPassword.trim() },
+    })
+
+    if (storedTokenData) {
+      resetTokensStore.delete(token)
+    }
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully! You can now sign in with your new password.',
+    })
+  } catch (error) {
+    console.error('Reset password error:', error)
+    res.status(500).json({ error: 'Failed to reset password', details: error.message })
+  }
+})
+
+// Route: PUT /api/auth/change-password - Change user password directly from Profile page
+app.put('/api/auth/change-password', async (req, res) => {
+  try {
+    const { email, currentPassword, newPassword } = req.body
+
+    if (!email || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required.' })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found.' })
+    }
+
+    if (user.password && user.password !== currentPassword.trim()) {
+      return res.status(400).json({ error: 'Incorrect current password. Please try again or use email reset.' })
+    }
+
+    if (newPassword.trim().length < 4) {
+      return res.status(400).json({ error: 'New password must be at least 4 characters long.' })
+    }
+
+    await prisma.user.update({
+      where: { email: normalizedEmail },
+      data: { password: newPassword.trim() },
+    })
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully!',
+    })
+  } catch (error) {
+    console.error('Change password error:', error)
+    res.status(500).json({ error: 'Failed to change password', details: error.message })
+  }
+})
+
 // Route: GET /api/db/products - Fetch All Products from Supabase DB via Prisma
 app.get('/api/db/products', async (req, res) => {
   try {

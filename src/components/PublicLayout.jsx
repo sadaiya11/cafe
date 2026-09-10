@@ -3,6 +3,8 @@ import TopNavigation from './TopNavigation'
 import ProtectedRoute from './ProtectedRoute'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
+import ForgotPasswordPage from '../pages/ForgotPasswordPage'
+import ResetPasswordPage from '../pages/ResetPasswordPage'
 import InfoPage from '../pages/InfoPage'
 import DashboardPage from '../pages/DashboardPage'
 import ProductDetailPage from '../pages/ProductDetailPage'
@@ -29,6 +31,8 @@ export default function PublicLayout() {
           <Route path="/offers" element={<InfoPage title="Special Offers" description="Enjoy the best combo deals, family packs, and chef specials prepared fresh for you." />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route
             path="/about"
             element={

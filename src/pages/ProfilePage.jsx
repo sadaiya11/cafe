@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { logout, updateUser } from '../store/authSlice'
-import { updateUserProfile } from '../services/api'
+import { updateUserProfile, changePassword, forgotPassword } from '../services/api'
 import { useNavigate } from 'react-router-dom'
 import SectionHeader from '../components/SectionHeader'
 import SEO from '../components/SEO'
@@ -16,6 +16,15 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [notice, setNotice] = useState({ type: '', message: '' })
+
+  // Password Update Form State
+  const [showPasswordSection, setShowPasswordSection] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [passwordNotice, setPasswordNotice] = useState({ type: '', message: '' })
+  const [resetEmailSentData, setResetEmailSentData] = useState(null)
 
   useEffect(() => {
     if (user) {
@@ -52,7 +61,6 @@ export default function ProfilePage() {
       setNotice({ type: 'success', message: 'Profile updated successfully!' })
       setIsEditing(false)
     } catch (err) {
-      // Even if offline/fallback, save locally in state so user UX is seamless
       dispatch(updateUser({ name: name.trim(), phone: phone.trim() }))
       setNotice({ type: 'success', message: 'Profile updated successfully!' })
       setIsEditing(false)
@@ -68,15 +76,83 @@ export default function ProfilePage() {
     setNotice({ type: '', message: '' })
   }
 
+  // Update password directly from Profile page
+  const handleChangePasswordSubmit = async (e) => {
+    e.preventDefault()
+    setPasswordNotice({ type: '', message: '' })
+
+    if (!currentPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
+      setPasswordNotice({ type: 'error', message: 'Please fill in all password fields.' })
+      return
+    }
+
+    if (newPassword.trim() !== confirmPassword.trim()) {
+      setPasswordNotice({ type: 'error', message: 'New password and confirm password do not match.' })
+      return
+    }
+
+    if (newPassword.trim().length < 4) {
+      setPasswordNotice({ type: 'error', message: 'New password must be at least 4 characters long.' })
+      return
+    }
+
+    setPasswordLoading(true)
+
+    try {
+      await changePassword({
+        email: user.email,
+        currentPassword: currentPassword.trim(),
+        newPassword: newPassword.trim(),
+      })
+
+      setPasswordNotice({ type: 'success', message: 'Password updated successfully!' })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err) {
+      setPasswordNotice({ type: 'error', message: err.message || 'Failed to update password.' })
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
+
+  // Send email reset link from Profile page
+  const handleSendResetEmail = async () => {
+    setPasswordNotice({ type: '', message: '' })
+    setResetEmailSentData(null)
+
+    if (!user?.email) {
+      setPasswordNotice({ type: 'error', message: 'No email found for this user account.' })
+      return
+    }
+
+    setPasswordLoading(true)
+
+    try {
+      const res = await forgotPassword({ email: user.email })
+      setResetEmailSentData(res)
+      setPasswordNotice({
+        type: 'success',
+        message: `Password reset verification link has been sent to ${user.email}! Check your inbox or click the preview link.`,
+      })
+    } catch (err) {
+      setPasswordNotice({ type: 'error', message: err.message || 'Failed to send reset link.' })
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       <SEO title="My Profile | Bun Maska Café" noindex={true} />
+
+      {/* Main Profile Section */}
       <section className="rounded-[2.5rem] bg-white p-6 shadow-xl shadow-slate-100 border border-slate-100 md:p-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
           <SectionHeader
             eyebrow="My Account"
             title="User Profile"
-            subtitle="Manage your personal details, saved preferences, and contact information."
+            subtitle="Manage your personal details, contact information, and security settings."
           />
           {!isEditing && (
             <button
@@ -202,8 +278,132 @@ export default function ProfilePage() {
             </div>
           )}
         </form>
+      </section>
 
-        <div className="mt-10 border-t border-slate-100 pt-6 flex justify-between items-center">
+      {/* Password Management & Security Section */}
+      <section className="rounded-[2.5rem] bg-white p-6 shadow-xl shadow-slate-100 border border-slate-100 md:p-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-widest text-orange-600">Account Protection</span>
+            <h2 className="mt-1 text-2xl font-black text-slate-900">Security & Password</h2>
+            <p className="mt-1 text-xs text-slate-500">Update your password or request an email reset verification link.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPasswordSection(!showPasswordSection)}
+            className="inline-flex items-center gap-2 self-start sm:self-auto rounded-full border border-slate-300 bg-slate-50 px-6 py-3 font-bold text-slate-800 shadow-sm transition hover:bg-slate-100 text-sm"
+          >
+            🔑 {showPasswordSection ? 'Hide Password Options' : 'Update Password Settings'}
+          </button>
+        </div>
+
+        {passwordNotice.message && (
+          <div
+            className={`mt-6 rounded-2xl border p-4 text-xs font-bold text-center ${
+              passwordNotice.type === 'error'
+                ? 'bg-rose-50 border-rose-200 text-rose-600'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            }`}
+          >
+            {passwordNotice.type === 'error' ? '⚠️ ' : '✅ '}
+            {passwordNotice.message}
+          </div>
+        )}
+
+        {/* Verification Link Preview Banner if Email Reset requested */}
+        {resetEmailSentData && (
+          <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50/70 p-4 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-orange-700">
+              📧 Email Reset Verification Link Preview:
+            </p>
+            <p className="text-xs text-slate-600 font-medium">
+              Click the link below to verify your email and open the password reset page:
+            </p>
+            <a
+              href={resetEmailSentData.resetLink}
+              className="block text-xs font-bold text-orange-600 underline break-all bg-white p-3 rounded-xl border border-orange-200 hover:bg-orange-100 transition"
+            >
+              {resetEmailSentData.resetLink}
+            </a>
+          </div>
+        )}
+
+        {showPasswordSection && (
+          <div className="mt-8 grid gap-8 md:grid-cols-2">
+            {/* Direct Password Update Form */}
+            <form onSubmit={handleChangePasswordSubmit} className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50/60 p-6">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Option 1: Change Password Directly</h3>
+              
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Current Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-orange-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">New Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-orange-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Confirm New Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-orange-400"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="w-full rounded-full bg-slate-900 px-6 py-3.5 text-xs font-bold text-white shadow hover:bg-slate-800 disabled:opacity-50 transition"
+              >
+                {passwordLoading ? 'Updating Password...' : 'Update Password ➔'}
+              </button>
+            </form>
+
+            {/* Email Reset Link Option */}
+            <div className="flex flex-col justify-between rounded-3xl border border-orange-200 bg-orange-50/40 p-6 space-y-4">
+              <div>
+                <h3 className="text-sm font-black text-orange-700 uppercase tracking-wider">Option 2: Email Verification Reset Link</h3>
+                <p className="mt-2 text-xs text-slate-600 font-medium leading-relaxed">
+                  Forgot your current password? We can send a password reset verification link to your email address:
+                </p>
+                <div className="mt-4 rounded-xl bg-white p-3 border border-orange-200 text-xs font-bold text-slate-800">
+                  📧 {user?.email}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSendResetEmail}
+                disabled={passwordLoading}
+                className="w-full rounded-full bg-orange-500 px-6 py-3.5 text-xs font-bold text-white shadow-md shadow-orange-200 hover:bg-orange-600 disabled:opacity-50 transition"
+              >
+                {passwordLoading ? 'Sending Email Link...' : 'Send Reset Link to My Email ➔'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-8 border-t border-slate-100 pt-6 flex justify-between items-center">
           <p className="text-xs font-medium text-slate-500">
             Registered account linked to <strong className="text-slate-700">{user?.email}</strong>
           </p>
