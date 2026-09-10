@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 const STORAGE_KEY = 'bun_maska_raw_inventory';
 
@@ -31,7 +31,9 @@ export default function InventoryManagerView() {
     setInventory(updated);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch {}
+    } catch (e) {
+      console.warn('Failed to save inventory:', e);
+    }
   };
 
   const handleRestock = (id, addAmount = 10) => {

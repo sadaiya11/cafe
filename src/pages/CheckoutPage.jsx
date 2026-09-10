@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSelector } from 'react-redux'
 import SEO from '../components/SEO'
 import DemoPaymentModal from '../components/DemoPaymentModal'
-import { useCart } from '../context/CartContext'
+import { useCart } from '../context/useCart'
 import { createOrder } from '../services/api'
 import { validateCoupon } from '../services/couponService'
 

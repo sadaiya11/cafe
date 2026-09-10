@@ -76,6 +76,14 @@ async function saveProduct(slug, body) {
   return { status: result.status, body: Array.isArray(result.body) ? result.body[0] : result.body }
 }
 
+async function deleteProduct(slug) {
+  if (!slug) return { status: 400, body: { error: 'Slug is required.' } }
+  const result = await supabaseRequest(`products?slug=eq.${encodeURIComponent(slug)}`, {
+    method: 'DELETE',
+  })
+  return { status: result.status < 400 ? 200 : result.status, body: { success: true, slug } }
+}
+
 const PRODUCT_IMAGE_BUCKET = 'product-images'
 
 async function uploadProductImage(slug, dataUrl, contentType = 'image/jpeg') {
@@ -257,7 +265,7 @@ async function updateOrderStatusInDb(orderId, status) {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
 
   if (req.method === 'OPTIONS') return res.status(204).end()
 
@@ -274,6 +282,8 @@ export default async function handler(req, res) {
         ? await uploadProductImage(req.body?.slug, req.body?.image, req.body?.contentType)
       : productSlug && req.method === 'PUT'
         ? await saveProduct(decodeURIComponent(productSlug), req.body || {})
+      : productSlug && req.method === 'DELETE'
+        ? await deleteProduct(decodeURIComponent(productSlug))
       : orderStatusId && (req.method === 'PATCH' || req.method === 'PUT')
         ? await updateOrderStatusInDb(orderStatusId, req.body?.status)
       : route.endsWith('/db/orders') && req.method === 'GET'

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { getCoupons, saveCoupons } from '../../services/couponService';
 
 export default function CouponsManagerView() {

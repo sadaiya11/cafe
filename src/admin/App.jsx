@@ -53,12 +53,22 @@ export default function App() {
 
   // Initial load and 1-minute polling interval
   useEffect(() => {
-    loadOrders();
+    let isMounted = true;
+    fetchAdminOrders().then((data) => {
+      if (!isMounted) return;
+      setOrders(data);
+      prevOrdersCountRef.current = data.length;
+      isFirstLoadRef.current = false;
+    });
+
     const interval = setInterval(() => {
       loadOrders();
     }, 60000); // Poll every 1 minute for live customer orders
 
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [loadOrders]);
 
   // Save sound setting

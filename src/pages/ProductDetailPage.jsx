@@ -67,7 +67,9 @@ export default function ProductDetailPage() {
     setReviews(updated)
     try {
       localStorage.setItem(`bun_maska_reviews_${slug}`, JSON.stringify(updated))
-    } catch {}
+    } catch (err) {
+      console.warn('Failed to save review:', err)
+    }
 
     setReviewerName('')
     setReviewComment('')

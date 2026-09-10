@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { getStoreSettings, saveStoreSettings, getHeroSlides, saveHeroSlides } from '../../services/storeSettingsService'
 
 export default function StoreSettingsView() {

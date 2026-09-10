@@ -36,7 +36,9 @@ export async function getOrders(userEmail = '') {
   try {
     const data = localStorage.getItem('bun_maska_user_orders')
     localOrders = data ? JSON.parse(data) : []
-  } catch {}
+  } catch (err) {
+    console.warn('Error reading local orders:', err)
+  }
 
   const apiOrderIds = new Set(orders.map((o) => o.orderId || o.id))
   const uniqueLocal = localOrders.filter((o) => !apiOrderIds.has(o.orderId || o.id))
@@ -53,7 +55,9 @@ export async function getOrders(userEmail = '') {
   try {
     const data = localStorage.getItem('bun_maska_status_overrides')
     statusOverrides = data ? JSON.parse(data) : {}
-  } catch {}
+  } catch (err) {
+    console.warn('Error reading status overrides:', err)
+  }
 
   return combined.map((o) => {
     const key1 = o.orderId ? String(o.orderId) : null
@@ -86,6 +90,20 @@ export async function saveProduct(product) {
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
     throw new Error(error.error || 'Unable to save product.')
+  }
+
+  return response.json()
+}
+
+/** Delete a product from the database */
+export async function deleteProduct(slug) {
+  const response = await fetch(`${API_BASE_URL}/api/db/products/${encodeURIComponent(slug)}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.error || 'Unable to delete product.')
   }
 
   return response.json()
@@ -127,5 +145,6 @@ export default {
   getOrders,
   getProducts,
   saveProduct,
+  deleteProduct,
   uploadProductImage,
 }

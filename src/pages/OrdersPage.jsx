@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import SectionHeader from '../components/SectionHeader'
 import SEO from '../components/SEO'
 import { getOrders } from '../services/api'
-import { useCart } from '../context/CartContext'
+import { useCart } from '../context/useCart'
 
 const formatPrice = (price) => `₹${Number(price || 0).toFixed(2)}`
 

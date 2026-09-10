@@ -57,14 +57,10 @@ export function validateCoupon(code, subtotal) {
     };
   }
 
-  let discountAmount = 0;
-  if (found.type === 'PERCENT') {
-    discountAmount = Math.round((subtotal * found.value) / 100);
-  } else {
-    discountAmount = Number(found.value);
-  }
-
-  discountAmount = Math.min(subtotal, discountAmount);
+  const rawDiscount = found.type === 'PERCENT'
+    ? Math.round((subtotal * found.value) / 100)
+    : Number(found.value);
+  const discountAmount = Math.min(subtotal, rawDiscount);
 
   return {
     valid: true,

@@ -20,18 +20,20 @@ async function main() {
   }))
 
   for (const product of sampleProducts) {
-    const existing = await prisma.product.findUnique({ where: { slug: product.slug } })
-    if (!existing) {
-      await prisma.product.create({ data: product })
-    } else if (!Array.isArray(existing.variants) || !existing.variants.length) {
-      // Preserve all existing admin fields, adding only the missing variant data.
-      await prisma.product.update({
-        where: { slug: product.slug },
-        data: {
-          variants: product.variants.map((variant, index) => index === 0 ? { ...variant, price: existing.price } : variant),
-        },
-      })
-    }
+    await prisma.product.upsert({
+      where: { slug: product.slug },
+      update: {
+        title: product.title,
+        category: product.category,
+        tag: product.tag,
+        description: product.description,
+        price: product.price,
+        image: product.image,
+        variants: product.variants,
+        inStock: true,
+      },
+      create: product,
+    })
   }
 
   console.log('✅ Supabase Database Seeded successfully!')

@@ -1,8 +1,8 @@
 import fallbackProducts from '../data/products.json'
-import { getProducts, saveProduct, uploadProductImage } from './api'
+import { getProducts, saveProduct, deleteProduct, uploadProductImage } from './api'
 
-const STORAGE_KEY = 'bun_maska_product_catalog'
-const DELETED_KEY = 'bun_maska_deleted_slugs'
+const STORAGE_KEY = 'bun_maska_product_catalog_v3'
+const DELETED_KEY = 'bun_maska_deleted_slugs_v3'
 
 function getDeletedSlugs() {
   try {
@@ -157,6 +157,12 @@ export async function deleteCatalogProduct(slug) {
 
   const stored = getStoredProducts().filter((item) => item.slug !== slug)
   storeProducts(stored)
+
+  try {
+    await deleteProduct(slug)
+  } catch (e) {
+    console.warn('API delete product notice:', e.message)
+  }
 }
 
 export async function uploadCatalogProductImage(slug, file) {

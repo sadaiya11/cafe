@@ -10,7 +10,6 @@ export default function ReviewsManagerView() {
   }
 
   useEffect(() => {
-    refresh()
     window.addEventListener('bun_reviews_updated', refresh)
     return () => window.removeEventListener('bun_reviews_updated', refresh)
   }, [])

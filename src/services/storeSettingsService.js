@@ -18,26 +18,26 @@ export const DEFAULT_SETTINGS = {
 
 export const DEFAULT_HERO_SLIDES = [
   {
-    id: 'slide-1',
-    title: 'Fresh taste, made to order.',
-    subtitle: 'Chef-crafted wraps, biryanis, grills, and family combos served fresh every day.',
-    image: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1500&q=80',
-    badge: 'Hot Picks',
+    "id": "slide-1",
+    "title": "Classic Taste • Premium Maska",
+    "subtitle": "Freshly grilled Bun Maska, Nutella Bun Maska, and Rabdi Bun Maska made with love.",
+    "image": "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1500&q=80",
+    "badge": "Signature Buns"
   },
   {
-    id: 'slide-2',
-    title: 'Big flavors, amazing value.',
-    subtitle: 'Savor our signature deals, all-day combos, and comforting meals for every mood.',
-    image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1500&q=80',
-    badge: 'Weekend Deal',
+    "id": "slide-2",
+    "title": "Maggi, Momos & Loaded Fries",
+    "subtitle": "Tadka Maggi, Cheese Peri Peri Fries, and Crispy Momos for every hunger craving.",
+    "image": "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=1500&q=80",
+    "badge": "Har Bite Me Maska"
   },
   {
-    id: 'slide-3',
-    title: 'Your favorite cafe, delivered fast.',
-    subtitle: 'Order online for quick delivery, pickup, and a warm dine-in experience.',
-    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1500&q=80',
-    badge: 'Fast Delivery',
-  },
+    "id": "slide-3",
+    "title": "Maska Loaded Sandwiches",
+    "subtitle": "Double-decker loaded sandwiches packed with fresh veggies, extra cheese & signature butter.",
+    "image": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=1500&q=80",
+    "badge": "Chef Special"
+  }
 ]
 
 export function getStoreSettings() {

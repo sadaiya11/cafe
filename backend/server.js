@@ -114,6 +114,17 @@ app.put('/api/db/products/:slug', async (req, res) => {
   }
 })
 
+// Route: DELETE /api/db/products/:slug - Delete Product from Supabase DB via Prisma
+app.delete('/api/db/products/:slug', async (req, res) => {
+  try {
+    const slug = req.params.slug
+    await prisma.product.delete({ where: { slug } })
+    res.json({ success: true, slug })
+  } catch (error) {
+    res.status(error.code === 'P2025' ? 404 : 500).json({ error: 'Failed to delete product', details: error.message })
+  }
+})
+
 // Route: POST /api/db/product-images - Upload a customer-visible product image.
 app.post('/api/db/product-images', async (req, res) => {
   try {

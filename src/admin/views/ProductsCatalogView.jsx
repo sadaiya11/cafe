@@ -9,7 +9,7 @@ import {
 } from '../../services/productCatalog'
 
 const emptyDraft = { title: '', description: '', price: '', image: '' }
-const emptyNewProduct = { title: '', category: 'Classic Bun Maska', price: '', description: '', image: '' }
+const emptyNewProduct = { title: '', category: 'Bun Maska', price: '', description: '', image: '' }
 
 export default function ProductsCatalogView({ onProductsChange }) {
   const [products, setProducts] = useState(getLocalCatalog)
