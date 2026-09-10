@@ -1,8 +1,8 @@
 import fallbackProducts from '../data/products.json'
 import { getProducts, saveProduct, deleteProduct, uploadProductImage } from './api'
 
-const STORAGE_KEY = 'bun_maska_product_catalog_v3'
-const DELETED_KEY = 'bun_maska_deleted_slugs_v3'
+const STORAGE_KEY = 'bun_maska_product_catalog_v4'
+const DELETED_KEY = 'bun_maska_deleted_slugs_v4'
 
 function getDeletedSlugs() {
   try {
@@ -46,12 +46,7 @@ export function mergeCatalogProducts(savedProducts = []) {
       }
     })
 
-  const fallbackSlugs = new Set(fallback.map((product) => product.slug))
-  const remoteOnly = savedProducts
-    .filter((product) => product.slug && !fallbackSlugs.has(product.slug) && !deletedSlugs.has(product.slug))
-    .map((product) => ({ ...product, inStock: product.inStock !== false }))
-
-  return [...merged, ...remoteOnly]
+  return merged
 }
 
 function getStoredProducts() {

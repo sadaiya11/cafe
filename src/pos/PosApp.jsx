@@ -42,7 +42,13 @@ export default function PosApp() {
   useEffect(() => {
     syncProducts();
     window.addEventListener('focus', syncProducts);
-    return () => window.removeEventListener('focus', syncProducts);
+    window.addEventListener('bun_catalog_updated', syncProducts);
+    window.addEventListener('storage', syncProducts);
+    return () => {
+      window.removeEventListener('focus', syncProducts);
+      window.removeEventListener('bun_catalog_updated', syncProducts);
+      window.removeEventListener('storage', syncProducts);
+    };
   }, []);
 
   // Add product to cart ticket

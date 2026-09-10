@@ -85,7 +85,7 @@
   },
   {
     "slug": "tutti-fruity-bun-maska",
-    "title": "Tutti Frutti Bun Maska",
+    "title": "Tutti Fruity Bun Maska",
     "category": "Bun Maska",
     "tag": "CLASSIC",
     "description": "Soft bun stuffed with colorful fruity tutti frutti bits and generous butter.",
@@ -219,7 +219,7 @@
       {
         "size": "standard",
         "label": "Standard",
-        "price": 40,
+        "price": 50,
         "image": "https://images.unsplash.com/photo-1612927601601-6638404737ce?auto=format&fit=crop&w=900&q=80",
         "gallery": [
           "https://images.unsplash.com/photo-1612927601601-6638404737ce?auto=format&fit=crop&w=900&q=80",
@@ -252,27 +252,6 @@
     ]
   },
   {
-    "slug": "veg-maggie",
-    "title": "Veg Maggie",
-    "category": "Maggie",
-    "tag": "HEALTHY",
-    "description": "Loaded with fresh crunchy vegetables and seasoned Maggi noodles.",
-    "variants": [
-      {
-        "size": "standard",
-        "label": "Standard",
-        "price": 50,
-        "image": "https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=900&q=80",
-        "gallery": [
-          "https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1612927601601-6638404737ce?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=900&q=80"
-        ]
-      }
-    ]
-  },
-  {
     "slug": "cheese-maggie",
     "title": "Cheese Maggie",
     "category": "Maggie",
@@ -294,22 +273,22 @@
     ]
   },
   {
-    "slug": "steam-momos",
-    "title": "Steam Momos",
-    "category": "Momos",
-    "tag": "STEAMED",
-    "description": "Soft & juicy vegetable dumplings served with spicy garlic chili chutney.",
+    "slug": "veg-maggie",
+    "title": "Veg Maggie",
+    "category": "Maggie",
+    "tag": "HEALTHY",
+    "description": "Loaded with fresh crunchy vegetables and seasoned Maggi noodles.",
     "variants": [
       {
         "size": "standard",
         "label": "Standard",
-        "price": 50,
-        "image": "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=900&q=80",
+        "price": 60,
+        "image": "https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=900&q=80",
         "gallery": [
-          "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1541696432-82c6da8ce7bf?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=900&q=80"
+          "https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1612927601601-6638404737ce?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=900&q=80"
         ]
       }
     ]
@@ -324,7 +303,7 @@
       {
         "size": "standard",
         "label": "Standard",
-        "price": 70,
+        "price": 60,
         "image": "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=900&q=80",
         "gallery": [
           "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=900&q=80",
@@ -336,64 +315,22 @@
     ]
   },
   {
-    "slug": "classic-salted-fries",
-    "title": "Classic Salted Fries",
-    "category": "French Fries",
-    "tag": "CRISPY",
-    "description": "Golden crispy potato fries seasoned with classic sea salt.",
+    "slug": "steam-momos",
+    "title": "Steam Momos",
+    "category": "Momos",
+    "tag": "STEAMED",
+    "description": "Soft & juicy vegetable dumplings served with spicy garlic chili chutney.",
     "variants": [
       {
         "size": "standard",
         "label": "Standard",
-        "price": 69,
-        "image": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80",
+        "price": 70,
+        "image": "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=900&q=80",
         "gallery": [
-          "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1600555139608-996b401fe703?auto=format&fit=crop&w=900&q=80"
-        ]
-      }
-    ]
-  },
-  {
-    "slug": "garlic-butter-fries",
-    "title": "Garlic Butter Fries",
-    "category": "French Fries",
-    "tag": "GARLIC",
-    "description": "Crispy fries tossed in melted garlic butter and aromatic herbs.",
-    "variants": [
-      {
-        "size": "standard",
-        "label": "Standard",
-        "price": 79,
-        "image": "https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=900&q=80",
-        "gallery": [
-          "https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1600555139608-996b401fe703?auto=format&fit=crop&w=900&q=80"
-        ]
-      }
-    ]
-  },
-  {
-    "slug": "cheese-peri-peri-fries",
-    "title": "Cheese Peri Peri Fries",
-    "category": "French Fries",
-    "tag": "SPICY",
-    "description": "Crispy fries tossed in zesty peri-peri spice and drenched in warm cheese sauce.",
-    "variants": [
-      {
-        "size": "standard",
-        "label": "Standard",
-        "price": 89,
-        "image": "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
-        "gallery": [
-          "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1600555139608-996b401fe703?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80",
-          "https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=900&q=80"
+          "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1541696432-82c6da8ce7bf?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=900&q=80"
         ]
       }
     ]
@@ -415,6 +352,90 @@
           "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
           "https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=900&q=80",
           "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80"
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "cheese-fries",
+    "title": "Cheese Fries",
+    "category": "French Fries",
+    "tag": "CHEESY",
+    "description": "Crispy potato fries drenched in warm melted cheese sauce.",
+    "variants": [
+      {
+        "size": "standard",
+        "label": "Standard",
+        "price": 80,
+        "image": "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
+        "gallery": [
+          "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1600555139608-996b401fe703?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=900&q=80"
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "garlic-butter-fries",
+    "title": "Garlic Butter Fries",
+    "category": "French Fries",
+    "tag": "GARLIC",
+    "description": "Crispy fries tossed in melted garlic butter and aromatic herbs.",
+    "variants": [
+      {
+        "size": "standard",
+        "label": "Standard",
+        "price": 80,
+        "image": "https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=900&q=80",
+        "gallery": [
+          "https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1600555139608-996b401fe703?auto=format&fit=crop&w=900&q=80"
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "cheese-peri-peri-fries",
+    "title": "Cheese Peri Peri Fries",
+    "category": "French Fries",
+    "tag": "SPICY",
+    "description": "Crispy fries tossed in zesty peri-peri spice and drenched in warm cheese sauce.",
+    "variants": [
+      {
+        "size": "standard",
+        "label": "Standard",
+        "price": 70,
+        "image": "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
+        "gallery": [
+          "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1600555139608-996b401fe703?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=900&q=80"
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "classic-salted-fries",
+    "title": "Classic Salted Fries",
+    "category": "French Fries",
+    "tag": "CRISPY",
+    "description": "Golden crispy potato fries seasoned with classic sea salt.",
+    "variants": [
+      {
+        "size": "standard",
+        "label": "Standard",
+        "price": 60,
+        "image": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80",
+        "gallery": [
+          "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1585109649139-366815a0d713?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=900&q=80",
+          "https://images.unsplash.com/photo-1600555139608-996b401fe703?auto=format&fit=crop&w=900&q=80"
         ]
       }
     ]

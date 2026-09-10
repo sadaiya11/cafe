@@ -19,6 +19,16 @@ async function main() {
     inStock: true,
   }))
 
+  console.log('🧹 Wiping old non-matching products...')
+  const validSlugs = sampleProducts.map((p) => p.slug)
+  await prisma.product.deleteMany({
+    where: {
+      slug: {
+        notIn: validSlugs,
+      },
+    },
+  })
+
   for (const product of sampleProducts) {
     await prisma.product.upsert({
       where: { slug: product.slug },

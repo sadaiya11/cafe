@@ -76,6 +76,7 @@ export default function ProductsCatalogView({ onProductsChange }) {
         onProductsChange?.(next)
         return next
       })
+      window.dispatchEvent(new Event('bun_catalog_updated'))
       setEditingSlug(null)
       setNotice('Saved successfully! Menu and POS now use these updated details.')
     } catch (error) {
@@ -104,6 +105,7 @@ export default function ProductsCatalogView({ onProductsChange }) {
       const updatedList = await loadCatalog()
       setProducts(updatedList)
       onProductsChange?.(updatedList)
+      window.dispatchEvent(new Event('bun_catalog_updated'))
       setShowAddModal(false)
       setNewProduct(emptyNewProduct)
       setNotice(`✅ "${addedItem.title}" successfully added to menu and POS!`)
@@ -122,6 +124,7 @@ export default function ProductsCatalogView({ onProductsChange }) {
       const updatedList = await loadCatalog()
       setProducts(updatedList)
       onProductsChange?.(updatedList)
+      window.dispatchEvent(new Event('bun_catalog_updated'))
       setNotice(`🗑️ "${title}" deleted from menu.`)
     }
   }
