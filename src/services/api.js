@@ -1,5 +1,50 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
+/** Register a new user account in database */
+export async function registerUser({ name, email, password, role = 'CUSTOMER', adminSecretKey }) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password, role, adminSecretKey }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.error || 'Registration failed.')
+  }
+  return data
+}
+
+/** Authenticate user email and password against database */
+export async function loginUser({ email, password }) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.error || 'Invalid email or password.')
+  }
+  return data
+}
+
+/** Update user profile (name and phone only) in database */
+export async function updateUserProfile({ email, name, phone }) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, name, phone }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to update user profile.')
+  }
+  return data
+}
+
 /** Create a new order in the database through the backend API. */
 export async function createOrder(orderPayload) {
   const response = await fetch(`${API_BASE_URL}/api/db/orders`, {
@@ -141,6 +186,9 @@ export async function uploadProductImage(slug, file) {
 }
 
 export default {
+  registerUser,
+  loginUser,
+  updateUserProfile,
   createOrder,
   getOrders,
   getProducts,

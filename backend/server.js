@@ -84,6 +84,133 @@ app.get('/api/health', async (req, res) => {
   }
 })
 
+// Route: POST /api/auth/register - Register a new user in database
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { name, email, password, role = 'CUSTOMER' } = req.body
+    if (!name || !name.trim() || !email || !email.trim() || !password || !password.trim()) {
+      return res.status(400).json({ error: 'Name, email, and password are required.' })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    if (password.trim().length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters long.' })
+    }
+
+    const isRegisteringAdmin = role.toUpperCase() === 'ADMIN'
+    const expectedAdminSecret = process.env.ADMIN_SECRET_KEY || 'BUN_MASKA_ADMIN_2026'
+
+    if (isRegisteringAdmin) {
+      const { adminSecretKey } = req.body
+      if (!adminSecretKey || String(adminSecretKey).trim() !== expectedAdminSecret) {
+        return res.status(403).json({
+          error: 'Invalid Admin Security Passcode. Only authorized store managers with the Master Key can register Admin accounts.',
+        })
+      }
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+    if (existingUser) {
+      return res.status(400).json({ error: 'An account with this email already exists. Please login instead.' })
+    }
+
+    const newUser = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: normalizedEmail,
+        password: password.trim(),
+        role: isRegisteringAdmin ? 'ADMIN' : 'CUSTOMER',
+      },
+    })
+
+    res.status(201).json({
+      success: true,
+      message: 'Account registered successfully!',
+      user: {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone || '',
+        role: newUser.role,
+      },
+    })
+  } catch (error) {
+    console.error('Registration error:', error)
+    res.status(500).json({ error: 'Failed to register account', details: error.message })
+  }
+})
+
+// Route: POST /api/auth/login - Authenticate user against database
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body
+    if (!email || !email.trim() || !password || !password.trim()) {
+      return res.status(400).json({ error: 'Email and password are required.' })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+
+    if (!user || user.password !== password.trim()) {
+      return res.status(401).json({ error: 'Invalid email or password.' })
+    }
+
+    res.json({
+      success: true,
+      message: 'Logged in successfully!',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        role: user.role,
+      },
+    })
+  } catch (error) {
+    console.error('Login error:', error)
+    res.status(500).json({ error: 'Failed to authenticate user', details: error.message })
+  }
+})
+
+// Route: PUT /api/auth/profile - Update user profile (Name & Phone only)
+app.put('/api/auth/profile', async (req, res) => {
+  try {
+    const { email, name, phone } = req.body
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email address is required to update profile.' })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User account not found.' })
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { email: normalizedEmail },
+      data: {
+        ...(name !== undefined ? { name: String(name).trim() } : {}),
+        ...(phone !== undefined ? { phone: String(phone).trim() } : {}),
+      },
+    })
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully!',
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone || '',
+        role: updatedUser.role,
+      },
+    })
+  } catch (error) {
+    console.error('Profile update error:', error)
+    res.status(500).json({ error: 'Failed to update profile', details: error.message })
+  }
+})
+
 // Route: GET /api/db/products - Fetch All Products from Supabase DB via Prisma
 app.get('/api/db/products', async (req, res) => {
   try {

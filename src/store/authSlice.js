@@ -23,6 +23,12 @@ const authSlice = createSlice({
       state.isAuthenticated = true
       localStorage.setItem('bun-maska-user', JSON.stringify(action.payload))
     },
+    updateUser: (state, action) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload }
+        localStorage.setItem('bun-maska-user', JSON.stringify(state.user))
+      }
+    },
     logout: (state) => {
       state.user = null
       state.isAuthenticated = false
@@ -31,5 +37,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { login, logout } = authSlice.actions
+export const { login, updateUser, logout } = authSlice.actions
 export default authSlice.reducer

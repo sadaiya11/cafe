@@ -262,6 +262,111 @@ async function updateOrderStatusInDb(orderId, status) {
   return result
 }
 
+async function registerAuthUser(body) {
+  const { name, email, password, role = 'CUSTOMER', adminSecretKey } = body || {}
+  if (!name || !name.trim() || !email || !email.trim() || !password || !password.trim()) {
+    return { status: 400, body: { error: 'Name, email, and password are required.' } }
+  }
+  const normalizedEmail = email.trim().toLowerCase()
+  if (password.trim().length < 4) {
+    return { status: 400, body: { error: 'Password must be at least 4 characters long.' } }
+  }
+
+  const isRegisteringAdmin = role.toUpperCase() === 'ADMIN'
+  const expectedAdminSecret = process.env.ADMIN_SECRET_KEY || 'BUN_MASKA_ADMIN_2026'
+
+  if (isRegisteringAdmin) {
+    if (!adminSecretKey || String(adminSecretKey).trim() !== expectedAdminSecret) {
+      return {
+        status: 403,
+        body: { error: 'Invalid Admin Security Passcode. Only authorized store managers with the Master Key can register Admin accounts.' },
+      }
+    }
+  }
+
+  const existing = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}&select=*`)
+  if (existing.status < 400 && Array.isArray(existing.body) && existing.body.length > 0) {
+    return { status: 400, body: { error: 'An account with this email already exists. Please login instead.' } }
+  }
+
+  const userRole = role.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'CUSTOMER'
+  const result = await supabaseRequest('users?select=*', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: password.trim(),
+      role: userRole,
+    }),
+  })
+
+  if (result.status >= 400) return result
+  const user = Array.isArray(result.body) ? result.body[0] : result.body
+  return {
+    status: 201,
+    body: {
+      success: true,
+      message: 'Account registered successfully!',
+      user: { id: user.id, name: user.name, email: user.email, phone: user.phone || '', role: user.role },
+    },
+  }
+}
+
+async function loginAuthUser(body) {
+  const { email, password } = body || {}
+  if (!email || !email.trim() || !password || !password.trim()) {
+    return { status: 400, body: { error: 'Email and password are required.' } }
+  }
+  const normalizedEmail = email.trim().toLowerCase()
+
+  const result = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}&select=*`)
+  if (result.status < 400 && Array.isArray(result.body) && result.body.length > 0) {
+    const user = result.body[0]
+    if (user.password === password.trim()) {
+      return {
+        status: 200,
+        body: {
+          success: true,
+          message: 'Logged in successfully!',
+          user: { id: user.id, name: user.name, email: user.email, phone: user.phone || '', role: user.role },
+        },
+      }
+    }
+  }
+
+  return { status: 401, body: { error: 'Invalid email or password.' } }
+}
+
+async function updateUserProfile(body) {
+  const { email, name, phone } = body || {}
+  if (!email || !email.trim()) {
+    return { status: 400, body: { error: 'User email is required to update profile.' } }
+  }
+  const normalizedEmail = email.trim().toLowerCase()
+
+  const updateFields = {}
+  if (name !== undefined) updateFields.name = String(name).trim()
+  if (phone !== undefined) updateFields.phone = String(phone).trim()
+
+  const result = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(updateFields),
+  })
+
+  if (result.status >= 400) return result
+  const user = Array.isArray(result.body) ? result.body[0] : result.body
+  return {
+    status: 200,
+    body: {
+      success: true,
+      message: 'Profile updated successfully!',
+      user: { id: user?.id, name: user?.name, email: user?.email, phone: user?.phone || '', role: user?.role },
+    },
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
@@ -276,7 +381,13 @@ export default async function handler(req, res) {
     const orderStatusMatch = route.match(/\/db\/orders\/([^/]+)\/status$/)
     const orderStatusId = orderStatusMatch ? decodeURIComponent(orderStatusMatch[1]) : null
 
-    const result = route.endsWith('/db/products') && req.method === 'GET'
+    const result = route.endsWith('/auth/register') && req.method === 'POST'
+      ? await registerAuthUser(req.body || {})
+      : route.endsWith('/auth/login') && req.method === 'POST'
+        ? await loginAuthUser(req.body || {})
+      : route.endsWith('/auth/profile') && (req.method === 'PUT' || req.method === 'PATCH')
+        ? await updateUserProfile(req.body || {})
+      : route.endsWith('/db/products') && req.method === 'GET'
       ? await getProducts()
       : route.endsWith('/db/product-images') && req.method === 'POST'
         ? await uploadProductImage(req.body?.slug, req.body?.image, req.body?.contentType)

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import TopNavigation from './TopNavigation'
 import ProtectedRoute from './ProtectedRoute'
 import LoginPage from '../pages/LoginPage'
+import RegisterPage from '../pages/RegisterPage'
 import InfoPage from '../pages/InfoPage'
 import DashboardPage from '../pages/DashboardPage'
 import ProductDetailPage from '../pages/ProductDetailPage'
@@ -27,6 +28,7 @@ export default function PublicLayout() {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/offers" element={<InfoPage title="Special Offers" description="Enjoy the best combo deals, family packs, and chef specials prepared fresh for you." />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route
             path="/about"
             element={
