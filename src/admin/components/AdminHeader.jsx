@@ -89,10 +89,22 @@ export default function AdminHeader({
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all disabled:opacity-50 shadow-md shadow-amber-500/10"
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all disabled:opacity-50 shadow-md shadow-amber-500/10"
           >
             <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
             <span>{isRefreshing ? 'Syncing...' : 'Sync Now'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              localStorage.removeItem('bun_maska_staff_session');
+              window.dispatchEvent(new Event('bun_staff_auth_changed'));
+            }}
+            className="flex items-center space-x-1 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-rose-500/20 hover:text-rose-300 text-slate-400 border border-slate-700 transition-all"
+            title="Lock Portal"
+          >
+            <span>🔒</span>
+            <span>Lock Portal</span>
           </button>
         </div>
 

@@ -75,6 +75,19 @@ export default function PosHeader({
           <span>👑</span>
           <span className="hidden sm:inline">Admin Desk</span>
         </Link>
+
+        {/* Lock POS Terminal */}
+        <button
+          onClick={() => {
+            localStorage.removeItem('bun_maska_staff_session');
+            window.dispatchEvent(new Event('bun_staff_auth_changed'));
+          }}
+          className="flex items-center space-x-1 px-2.5 md:px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-300 text-slate-400 border border-slate-700 text-xs font-semibold transition-all"
+          title="Lock Terminal"
+        >
+          <span>🔒</span>
+          <span className="hidden sm:inline">Lock</span>
+        </button>
       </div>
     </header>
   );
