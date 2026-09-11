@@ -16,8 +16,14 @@ const paymentMethods = [
 function loadRazorpayScript() {
   return new Promise((resolve, reject) => {
     if (window.Razorpay) return resolve(true)
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
+    if (existing) {
+      existing.addEventListener('load', resolve)
+      return
+    }
     const script = document.createElement('script')
     script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
     script.onload = resolve
     script.onerror = () => reject(new Error('Unable to load Razorpay checkout.'))
     document.body.appendChild(script)
@@ -106,6 +112,14 @@ export default function CheckoutPage() {
       if (!response.ok) throw new Error('Backend payment endpoint is not running on Vercel.')
 
       const order = await response.json()
+
+      if (order.error) {
+        throw new Error(order.error)
+      }
+
+      if (!order.id && !order.isDemo) {
+        throw new Error('Could not create Razorpay order ID. Please verify server credentials.')
+      }
 
       if (order.isDemo) {
         setDemoPaymentOpen(true)
