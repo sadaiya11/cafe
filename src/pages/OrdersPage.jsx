@@ -70,10 +70,10 @@ export default function OrdersPage() {
   const getStepProgress = (currentStatus) => {
     const norm = String(currentStatus || 'CONFIRMED').toUpperCase()
     if (norm === 'CANCELLED') return -1
-    if (norm === 'DELIVERED' || norm === 'PAID') return 4
+    if (norm === 'DELIVERED') return 4
     if (norm === 'OUT_FOR_DELIVERY') return 3
     if (norm === 'PREPARING') return 2
-    return 1 // CONFIRMED or PENDING
+    return 1 // CONFIRMED, PAID, or PENDING
   }
 
   const renderStatusBadge = (status) => {
@@ -81,7 +81,7 @@ export default function OrdersPage() {
     if (norm === 'CANCELLED') {
       return <span className="rounded-full px-3 py-0.5 text-xs font-extrabold bg-rose-100 text-rose-800">❌ CANCELLED</span>
     }
-    if (norm === 'DELIVERED' || norm === 'PAID') {
+    if (norm === 'DELIVERED') {
       return <span className="rounded-full px-3 py-0.5 text-xs font-extrabold bg-emerald-100 text-emerald-800">🎉 DELIVERED</span>
     }
     if (norm === 'OUT_FOR_DELIVERY') {
@@ -90,7 +90,7 @@ export default function OrdersPage() {
     if (norm === 'PREPARING') {
       return <span className="rounded-full px-3 py-0.5 text-xs font-extrabold bg-blue-100 text-blue-800 animate-pulse">👨‍🍳 PREPARING</span>
     }
-    if (norm === 'CONFIRMED') {
+    if (norm === 'CONFIRMED' || norm === 'PAID') {
       return <span className="rounded-full px-3 py-0.5 text-xs font-extrabold bg-indigo-100 text-indigo-800">📝 CONFIRMED</span>
     }
     return <span className="rounded-full px-3 py-0.5 text-xs font-extrabold bg-amber-100 text-amber-800 animate-pulse">⏳ PENDING APPROVAL</span>

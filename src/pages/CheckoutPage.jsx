@@ -68,7 +68,7 @@ export default function CheckoutPage() {
           paymentId: payment.paymentId,
           paymentMethod: paymentMethod === 'cod' ? 'COD' : 'RAZORPAY',
           paymentStatus: paymentMethod === 'cod' ? 'PENDING' : 'SUCCESS',
-          status: paymentMethod === 'cod' ? 'CONFIRMED' : 'PAID',
+          status: 'CONFIRMED',
         })
       } catch (e) {
         setStatus({ type: 'failure', message: `We could not save your order: ${e.message} Please try again.` })
