@@ -494,8 +494,8 @@ app.post('/api/payments/create-order', async (req, res) => {
       })
     }
 
-    if (!Number.isInteger(amount) || amount <= 0) {
-      return res.status(400).json({ error: 'Valid amount in paise is required' })
+    if (!Number.isInteger(amount) || amount < 100) {
+      return res.status(400).json({ error: 'Valid amount in paise (minimum 100 paise) is required.' })
     }
 
     const options = {

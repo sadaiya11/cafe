@@ -169,8 +169,8 @@ async function createRazorpayOrder(body) {
     return { status: 503, body: { error: 'Razorpay is not configured on the server.' } }
   }
 
-  if (!Number.isInteger(amount) || amount <= 0) {
-    return { status: 400, body: { error: 'Valid amount in paise is required' } }
+  if (!Number.isInteger(amount) || amount < 100) {
+    return { status: 400, body: { error: 'Valid amount in paise (minimum 100 paise) is required.' } }
   }
 
   const response = await fetch('https://api.razorpay.com/v1/orders', {
