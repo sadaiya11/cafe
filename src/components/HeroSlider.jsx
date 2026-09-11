@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getHeroSlides, getStoreSettings } from '../services/storeSettingsService'
+import { getHeroSlides, getStoreSettings, isStoreCurrentlyOpen } from '../services/storeSettingsService'
 
 export default function HeroSlider() {
   const [slides, setSlides] = useState(getHeroSlides)
   const [storeSettings, setStoreSettings] = useState(getStoreSettings)
   const [activeSlide, setActiveSlide] = useState(0)
+
+  const isCurrentlyOpen = isStoreCurrentlyOpen(storeSettings)
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -67,10 +69,9 @@ export default function HeroSlider() {
           <div className="w-full max-w-sm rounded-[2rem] border border-white/20 bg-white/10 p-5 backdrop-blur-md">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-[0.25em] text-orange-200">Store Status</span>
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                storeSettings.isStoreOpen ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-              }`}>
-                {storeSettings.isStoreOpen ? '🟢 OPEN NOW' : '🛑 STORE CLOSED'}
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${isCurrentlyOpen ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                }`}>
+                {isCurrentlyOpen ? '🟢 OPEN NOW' : '🛑 STORE OPENS 11:00 AM'}
               </span>
             </div>
             <div className="mt-6 space-y-3.5 text-white text-sm">
@@ -85,7 +86,7 @@ export default function HeroSlider() {
               <div className="flex items-center justify-between">
                 <span>Location</span>
                 <span className="text-right text-xs font-semibold text-slate-200 line-clamp-1 max-w-[180px]" title={storeSettings.address}>
-                  📍 {storeSettings.city || 'Mumbai'}
+                  📍 {storeSettings.city || 'Guna'}
                 </span>
               </div>
             </div>
@@ -99,9 +100,8 @@ export default function HeroSlider() {
             key={item.title}
             type="button"
             onClick={() => setActiveSlide(index)}
-            className={`h-3 rounded-full transition ${
-              index === activeSlide ? 'w-10 bg-orange-500' : 'w-3 bg-white/60 hover:bg-white'
-            }`}
+            className={`h-3 rounded-full transition ${index === activeSlide ? 'w-10 bg-orange-500' : 'w-3 bg-white/60 hover:bg-white'
+              }`}
             aria-label={`Go to slide ${index + 1}`}
           />
         ))}

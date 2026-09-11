@@ -13,14 +13,14 @@ const cafeJsonLd = {
   image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80',
   '@id': 'https://bunmaskacafe.com/#cafe',
   url: 'https://bunmaskacafe.com',
-  telephone: '+1-555-123-4567',
+  telephone: '+91-8085700750',
   priceRange: '₹₹',
   servesCuisine: ['Café', 'Bakery', 'Irani Chai', 'Snacks', 'Coffee'],
   address: {
     '@type': 'PostalAddress',
-    streetAddress: '123 Café Street, Downtown',
-    addressLocality: 'City Center',
-    postalCode: '90001',
+    streetAddress: 'Sisodiya Colony, Guna M.P.',
+    addressLocality: 'Guna',
+    postalCode: '473002',
     addressCountry: 'IN',
   },
   openingHoursSpecification: [
@@ -60,7 +60,7 @@ export default function DashboardPage() {
         {[
           { label: 'Free Delivery', value: 'On orders above ₹499' },
           { label: 'Freshly Made', value: 'Prepared daily in-house' },
-          { label: 'Open Daily', value: '11:00 AM - 2:30 AM' },
+          { label: 'Open Daily', value: '11:00 AM - 12:00 PM' },
         ].map((item) => (
           <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center">
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-orange-500">{item.label}</p>

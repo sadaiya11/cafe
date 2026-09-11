@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { logout } from '../store/authSlice'
-import { getStoreSettings } from '../services/storeSettingsService'
+import { getStoreSettings, isStoreCurrentlyOpen } from '../services/storeSettingsService'
 
 export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0 }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -39,17 +39,10 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
     navigate('/dashboard')
   }
 
-  const isStoreOpen = storeSettings?.isStoreOpen !== false
+  const isStoreOpen = isStoreCurrentlyOpen(storeSettings)
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
-      {!isStoreOpen && (
-        <div className="bg-rose-600 text-white text-center py-2 px-4 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2">
-          <span>🛑</span>
-          <span>{storeSettings?.storeClosedNotice || 'Our cafe is currently closed for online orders.'}</span>
-        </div>
-      )}
-
       <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-8">
         <div className="flex items-center gap-3 shrink-0">
           {/* Logo Container: Logo Image links to Home, Magnifying Glass appears on hover to open HD Big Logo */}

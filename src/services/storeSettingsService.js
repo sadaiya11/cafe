@@ -3,17 +3,21 @@ const HERO_SLIDES_KEY = 'bun_maska_hero_slides'
 
 export const DEFAULT_SETTINGS = {
   isStoreOpen: true,
-  storeClosedNotice: 'Our cafe is currently closed for online orders. We will re-open soon!',
+  storeClosedNotice: 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:59 PM.',
   deliveryFee: 4.99,
   taxRate: 0.08, // 8% GST/Tax
   freeDeliveryThreshold: 500,
   storeName: 'Bun Maska Café',
-  phone: '+91 98765 43210',
+  phone: '8085700750',
   email: 'hello@bunmaskacafe.com',
-  address: '123 Irani Cafe Street, Bandra West',
-  city: 'Mumbai',
-  zip: '400050',
-  hours: 'Mon - Sun: 7:00 AM - 11:00 PM',
+  address: 'Sisodiya Colony, Guna M.P.',
+  city: 'Guna, M.P.',
+  zip: '473002',
+  hours: 'Mon - Sun: 11:00 AM - 11:59 PM',
+  openHour: 11, // 11:00 AM
+  openMinute: 0,
+  closeHour: 23, // 11:59 PM
+  closeMinute: 59,
 }
 
 export const DEFAULT_HERO_SLIDES = [
@@ -40,10 +44,42 @@ export const DEFAULT_HERO_SLIDES = [
   }
 ]
 
+/** Check real-time store operating status based on current local time & settings */
+export function isStoreCurrentlyOpen(settings) {
+  const currentSettings = settings || getStoreSettings()
+  
+  // If store owner manually toggled store closed in Admin settings, respect manual toggle!
+  if (currentSettings.isStoreOpen === false) {
+    return false
+  }
+
+  const openHour = currentSettings.openHour ?? 11
+  const openMinute = currentSettings.openMinute ?? 0
+  const closeHour = currentSettings.closeHour ?? 23
+  const closeMinute = currentSettings.closeMinute ?? 59
+
+  const now = new Date()
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  const openMinutesTotal = openHour * 60 + openMinute
+  const closeMinutesTotal = closeHour * 60 + closeMinute
+
+  return currentMinutes >= openMinutesTotal && currentMinutes <= closeMinutesTotal
+}
+
 export function getStoreSettings() {
   try {
     const data = localStorage.getItem(STORE_SETTINGS_KEY)
-    return data ? { ...DEFAULT_SETTINGS, ...JSON.parse(data) } : DEFAULT_SETTINGS
+    if (!data) return DEFAULT_SETTINGS
+    const parsed = JSON.parse(data)
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      phone: parsed.phone && parsed.phone !== '+91 98765 43210' ? parsed.phone : '8085700750',
+      address: parsed.address && !parsed.address.includes('123 Irani') ? parsed.address : 'Sisodiya Colony, Guna M.P.',
+      city: parsed.city || 'Guna, M.P.',
+      zip: parsed.zip || '473002',
+      hours: parsed.hours || 'Mon - Sun: 11:00 AM - 11:59 PM',
+    }
   } catch {
     return DEFAULT_SETTINGS
   }
