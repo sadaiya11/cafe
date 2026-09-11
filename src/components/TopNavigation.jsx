@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { logout } from '../store/authSlice'
@@ -6,6 +7,7 @@ import { getStoreSettings } from '../services/storeSettingsService'
 
 export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [showLogoModal, setShowLogoModal] = useState(false)
   const [storeSettings, setStoreSettings] = useState(getStoreSettings)
   const dispatch = useDispatch()
   const navigate = useNavigate()
@@ -40,7 +42,7 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
   const isStoreOpen = storeSettings?.isStoreOpen !== false
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
       {!isStoreOpen && (
         <div className="bg-rose-600 text-white text-center py-2 px-4 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2">
           <span>🛑</span>
@@ -48,16 +50,38 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
         </div>
       )}
 
-      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-8">
-        <Link to="/dashboard" className="flex items-center gap-3 shrink-0" onClick={() => setMenuOpen(false)}>
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-orange-500 text-lg font-black text-white shadow-lg shadow-orange-200">
-            {storeSettings?.storeName?.charAt(0) || 'B'}
+      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-8">
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Logo Container: Logo Image links to Home, Magnifying Glass appears on hover to open HD Big Logo */}
+          <div className="relative shrink-0 group">
+            {/* Clicking Logo Image redirects to Home Page */}
+            <Link to="/dashboard" onClick={() => setMenuOpen(false)} title="Go to Home Page" className="block">
+              <img
+                src="/logo.png"
+                alt="Bun Maska Café Logo"
+                className="h-12 w-12 sm:h-14 sm:w-14 rounded-full object-contain shadow-md border-2 border-amber-400 bg-amber-50 p-0.5 transition-transform duration-200 group-hover:scale-105"
+              />
+            </Link>
+
+            {/* Dedicated Magnifying Glass Button (Visible ONLY on Hover) */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowLogoModal(true)
+              }}
+              title="Click magnifying glass to view HD big logo"
+              className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-white shadow-md border-2 border-white text-[10px] opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 hover:bg-amber-600 hover:scale-110 active:scale-95"
+            >
+              🔍
+            </button>
           </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-orange-500">Fresh taste</p>
-            <p className="text-lg font-black text-slate-900">{storeSettings?.storeName || brand}</p>
-          </div>
-        </Link>
+
+          <Link to="/dashboard" onClick={() => setMenuOpen(false)}>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.32em] text-orange-600">Fresh Taste & Chai</p>
+            <p className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">{storeSettings?.storeName || brand}</p>
+          </Link>
+        </div>
 
         <div className="hidden items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1.5 md:flex">
           {items.map((item) => (
@@ -156,6 +180,40 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
           </div>
         </div>
       ) : null}
+
+      {/* High-Resolution HD Logo Lightbox Modal */}
+      {showLogoModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto"
+            onClick={() => setShowLogoModal(false)}
+          >
+            <div
+              className="relative max-w-sm sm:max-w-md w-full rounded-3xl bg-white p-6 shadow-2xl border border-amber-200 text-center my-auto animate-in fade-in zoom-in duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setShowLogoModal(false)}
+                className="absolute top-4 right-4 h-9 w-9 rounded-full bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 flex items-center justify-center z-10"
+              >
+                ✕
+              </button>
+              <div className="pt-2">
+                <img
+                  src="/logo.png"
+                  alt="Bun Maska Café High Quality Logo"
+                  className="mx-auto w-full max-w-[280px] sm:max-w-[320px] max-h-[55vh] object-contain drop-shadow-xl"
+                />
+                <h3 className="mt-3 text-lg font-black text-slate-900">Bun Maska Café</h3>
+                <p className="text-xs font-bold text-orange-600 tracking-wider uppercase mt-1">
+                  📞 8085700750 • 📷 @bun_maska_cafe
+                </p>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </header>
   )
 }

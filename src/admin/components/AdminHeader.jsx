@@ -14,9 +14,11 @@ export default function AdminHeader({
         
         {/* Title and Live Status */}
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-amber-500/20">
-            ☕
-          </div>
+          <img
+            src="/logo.png"
+            alt="Bun Maska Café Logo"
+            className="w-10 h-10 rounded-full object-cover shadow-lg border border-amber-400"
+          />
           <div>
             <div className="flex items-center space-x-2">
               <h1 className="text-xl font-bold text-white tracking-tight">Bun Maska Admin</h1>

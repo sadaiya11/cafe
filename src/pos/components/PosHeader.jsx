@@ -23,9 +23,11 @@ export default function PosHeader({
     <header className="bg-slate-900 border-b border-slate-800 text-white px-3 md:px-6 py-2 md:py-3 flex items-center justify-between shrink-0 shadow-md">
       {/* Brand & Mode Title */}
       <div className="flex items-center space-x-2 md:space-x-3">
-        <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-slate-950 font-black text-base md:text-xl shadow-lg shadow-amber-500/20">
-          ☕
-        </div>
+        <img
+          src="/logo.png"
+          alt="Bun Maska Café Logo"
+          className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover shadow-lg border border-amber-400"
+        />
         <div>
           <div className="flex items-center space-x-1.5">
             <h1 className="text-sm md:text-lg font-bold tracking-tight text-white">Bun Maska POS</h1>
