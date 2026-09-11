@@ -17,7 +17,10 @@ const defaultReviews = [
 export default function ProductDetailPage() {
   const { slug } = useParams()
   const [products, setProducts] = useState(getLocalCatalog)
-  useEffect(() => { loadCatalog().then(setProducts) }, [])
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    loadCatalog().then(setProducts)
+  }, [slug])
   const product = products.find((item) => item.slug === slug)
   const navigate = useNavigate()
   const { addItem } = useCart()

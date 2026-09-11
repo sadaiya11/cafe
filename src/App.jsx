@@ -3,12 +3,14 @@ import PublicLayout from './components/PublicLayout'
 import AdminPortal from './admin/App'
 import PosApp from './pos/PosApp'
 import AdminAuthGuard from './components/AdminAuthGuard'
+import ScrollToTop from './components/ScrollToTop'
 import { CartProvider } from './context/CartContext'
 
 function App() {
   return (
     <CartProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route
             path="/admin/*"
