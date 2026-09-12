@@ -17,35 +17,53 @@ export default function OrdersDeskView({
     { id: 'CANCELLED', label: 'Cancelled', count: orders.filter(o => o.status === 'CANCELLED').length, color: 'bg-rose-500/20 text-rose-300 border-rose-500/30' }
   ];
 
-  // Filter orders by status tab and global search term
-  const filteredOrders = orders.filter(order => {
-    // Status match
-    const currentStatus = order.status || 'PENDING';
-    if (statusFilter !== 'ALL' && currentStatus !== statusFilter) {
-      return false;
+  function getOrderTime(order) {
+    if (!order) return 0
+    const raw = order.createdAt || order.created_at || order.orderDate || order.date
+    if (raw) {
+      const parsed = new Date(raw).getTime()
+      if (!isNaN(parsed) && parsed > 0) return parsed
     }
-
-    // Search match
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      const orderIdStr = String(order.id || order.orderId || '').toLowerCase();
-      const customer = order.customer || {};
-      const custName = String(order.customerName || order.customer_name || customer.name || '').toLowerCase();
-      const phone = String(order.phone || customer.phone || '').toLowerCase();
-      const address = String(order.address || customer.address || '').toLowerCase();
-      const city = String(order.city || customer.city || '').toLowerCase();
-
-      return (
-        orderIdStr.includes(term) ||
-        custName.includes(term) ||
-        phone.includes(term) ||
-        address.includes(term) ||
-        city.includes(term)
-      );
+    const idStr = String(order.orderId || order.id || '')
+    const match = idStr.match(/\d{10,}/)
+    if (match) {
+      const parsed = Number(match[0])
+      if (!isNaN(parsed) && parsed > 0) return parsed
     }
+    return 0
+  }
 
-    return true;
-  });
+  // Filter orders by status tab and global search term, sorted date/time descending (newest first)
+  const filteredOrders = orders
+    .filter(order => {
+      // Status match
+      const currentStatus = order.status || 'PENDING';
+      if (statusFilter !== 'ALL' && currentStatus !== statusFilter) {
+        return false;
+      }
+
+      // Search match
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const orderIdStr = String(order.id || order.orderId || '').toLowerCase();
+        const customer = order.customer || {};
+        const custName = String(order.customerName || order.customer_name || customer.name || '').toLowerCase();
+        const phone = String(order.phone || customer.phone || '').toLowerCase();
+        const address = String(order.address || customer.address || '').toLowerCase();
+        const city = String(order.city || customer.city || '').toLowerCase();
+
+        return (
+          orderIdStr.includes(term) ||
+          custName.includes(term) ||
+          phone.includes(term) ||
+          address.includes(term) ||
+          city.includes(term)
+        );
+      }
+
+      return true;
+    })
+    .sort((a, b) => getOrderTime(b) - getOrderTime(a));
 
   const getStatusBadge = (status) => {
     switch (status) {

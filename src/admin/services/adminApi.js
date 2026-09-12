@@ -64,11 +64,28 @@ function getLocalOrders() {
   }
 }
 
+function getOrderTimestamp(order) {
+  if (!order) return 0
+  const rawDate = order.createdAt || order.created_at || order.orderDate || order.date
+  if (rawDate) {
+    const parsed = new Date(rawDate).getTime()
+    if (!isNaN(parsed) && parsed > 0) return parsed
+  }
+  const idStr = String(order.orderId || order.id || '')
+  const numMatch = idStr.match(/\d{10,}/)
+  if (numMatch) {
+    const parsed = Number(numMatch[0])
+    if (!isNaN(parsed) && parsed > 0) return parsed
+  }
+  return 0
+}
+
 /**
  * Fetch all customer orders from Supabase Database API (merged with local orders)
  */
 export async function fetchAdminOrders() {
   const localOrders = getLocalOrders()
+  let combined = []
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/db/orders`)
@@ -76,13 +93,17 @@ export async function fetchAdminOrders() {
       const apiOrders = await response.json()
       const apiOrderIds = new Set((apiOrders || []).map((o) => o.orderId || o.id))
       const uniqueLocal = localOrders.filter((o) => !apiOrderIds.has(o.orderId || o.id))
-      return [...apiOrders, ...uniqueLocal].map(normalizeOrder)
+      combined = [...apiOrders, ...uniqueLocal].map(normalizeOrder)
+    } else {
+      combined = localOrders.map(normalizeOrder)
     }
   } catch (err) {
     console.warn('Admin API fetch fallback to local storage:', err.message)
+    combined = localOrders.map(normalizeOrder)
   }
 
-  return localOrders.map(normalizeOrder)
+  // Sort latest orders first (date and time descending)
+  return combined.sort((a, b) => getOrderTimestamp(b) - getOrderTimestamp(a))
 }
 
 /**

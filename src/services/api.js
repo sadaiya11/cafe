@@ -107,6 +107,22 @@ export async function createOrder(orderPayload) {
   return response.json()
 }
 
+export function getOrderTimestamp(order) {
+  if (!order) return 0
+  const rawDate = order.createdAt || order.created_at || order.orderDate || order.date
+  if (rawDate) {
+    const parsed = new Date(rawDate).getTime()
+    if (!isNaN(parsed) && parsed > 0) return parsed
+  }
+  const idStr = String(order.orderId || order.id || '')
+  const numMatch = idStr.match(/\d{10,}/)
+  if (numMatch) {
+    const parsed = Number(numMatch[0])
+    if (!isNaN(parsed) && parsed > 0) return parsed
+  }
+  return 0
+}
+
 /**
  * 2. Get User Orders from Supabase Database via API (with merged local order state)
  */
@@ -150,12 +166,15 @@ export async function getOrders(userEmail = '') {
     console.warn('Error reading status overrides:', err)
   }
 
-  return combined.map((o) => {
+  const mapped = combined.map((o) => {
     const key1 = o.orderId ? String(o.orderId) : null
     const key2 = o.id ? String(o.id) : null
     const override = (key1 && statusOverrides[key1]) || (key2 && statusOverrides[key2])
     return { ...o, status: override || o.status || 'PENDING' }
   })
+
+  // Sort latest orders first (date and time descending)
+  return mapped.sort((a, b) => getOrderTimestamp(b) - getOrderTimestamp(a))
 }
 
 /**

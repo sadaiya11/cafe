@@ -23,28 +23,24 @@ export default function OrdersPage() {
   const navigate = useNavigate()
   const { addItem } = useCart()
 
-  useEffect(() => {
-    async function fetchOrders() {
-      setLoading(true)
-      setError(null)
+  const fetchOrders = async () => {
+    setLoading(true)
+    setError(null)
 
-      try {
-        const data = await getOrders(user?.email || '')
-        setOrders(data)
-      } catch (err) {
-        console.warn('Using fallback orders due to network/server:', err.message)
-        setError(err.message)
-        setOrders([])
-      } finally {
-        setLoading(false)
-      }
+    try {
+      const data = await getOrders(user?.email || '')
+      setOrders(data)
+    } catch (err) {
+      console.warn('Using fallback orders due to network/server:', err.message)
+      setError(err.message)
+      setOrders([])
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchOrders()
-
-    // Refresh every 1 minute (60,000 ms) for status updates
-    const interval = setInterval(fetchOrders, 60 * 1000)
-    return () => clearInterval(interval)
   }, [user])
 
   const handleReorder = (order) => {
@@ -178,7 +174,14 @@ export default function OrdersPage() {
                     <div className="pt-2">
                       <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
                         <span>Live Kitchen Tracking</span>
-                        <span className="text-orange-500 font-extrabold animate-pulse">● Auto-updates every 1 min</span>
+                        <button
+                          onClick={fetchOrders}
+                          className="text-orange-600 hover:text-orange-700 font-extrabold flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Refresh live status"
+                        >
+                          <span>🔄</span>
+                          <span>Refresh Status</span>
+                        </button>
                       </div>
 
                       {/* Progress Line & Steps */}
