@@ -76,3 +76,14 @@ model OrderItem {
 
   @@map("order_items")
 }
+
+// General Key-Value Store Settings & Slides Model
+model StoreSetting {
+  key       String   @id
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("store_settings")
+}
+

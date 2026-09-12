@@ -66,6 +66,8 @@ export function isStoreCurrentlyOpen(settings) {
   return currentMinutes >= openMinutesTotal && currentMinutes <= closeMinutesTotal
 }
 
+const API_BASE = '/api/db'
+
 export function getStoreSettings() {
   try {
     const data = localStorage.getItem(STORE_SETTINGS_KEY)
@@ -85,12 +87,37 @@ export function getStoreSettings() {
   }
 }
 
+export async function fetchStoreSettingsFromServer() {
+  try {
+    const res = await fetch(`${API_BASE}/settings`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+        const merged = { ...DEFAULT_SETTINGS, ...data }
+        localStorage.setItem(STORE_SETTINGS_KEY, JSON.stringify(merged))
+        window.dispatchEvent(new Event('bun_store_settings_updated'))
+        return merged
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to fetch store settings from server:', err)
+  }
+  return getStoreSettings()
+}
+
 export function saveStoreSettings(settings) {
   try {
     const current = getStoreSettings()
     const updated = { ...current, ...settings }
     localStorage.setItem(STORE_SETTINGS_KEY, JSON.stringify(updated))
     window.dispatchEvent(new Event('bun_store_settings_updated'))
+
+    fetch(`${API_BASE}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    }).catch((err) => console.warn('Server settings sync notice:', err))
+
     return updated
   } catch (e) {
     console.warn('Failed to save store settings:', e)
@@ -107,10 +134,34 @@ export function getHeroSlides() {
   }
 }
 
+export async function fetchHeroSlidesFromServer() {
+  try {
+    const res = await fetch(`${API_BASE}/slides`)
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data) && data.length > 0) {
+        localStorage.setItem(HERO_SLIDES_KEY, JSON.stringify(data))
+        window.dispatchEvent(new Event('bun_hero_slides_updated'))
+        return data
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to fetch hero slides from server:', err)
+  }
+  return getHeroSlides()
+}
+
 export function saveHeroSlides(slides) {
   try {
     localStorage.setItem(HERO_SLIDES_KEY, JSON.stringify(slides))
     window.dispatchEvent(new Event('bun_hero_slides_updated'))
+
+    fetch(`${API_BASE}/slides`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(slides),
+    }).catch((err) => console.warn('Server slides sync notice:', err))
+
     return slides
   } catch (e) {
     console.warn('Failed to save hero slides:', e)

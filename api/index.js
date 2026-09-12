@@ -39,9 +39,9 @@ async function getOrders(query) {
   const params = new URLSearchParams({ select: '*,order_items(*)', order: 'createdAt.desc' })
   const email = query.get('email')
   if (email) params.set('customer->>email', `eq.${email}`)
-  
+
   let result = await supabaseRequest(`orders?${params.toString()}`)
-  
+
   // Fallback if relationship 'order_items' is not found in schema cache
   if (result.status >= 400) {
     const fallbackParams = new URLSearchParams({ select: '*', order: 'createdAt.desc' })
@@ -65,7 +65,7 @@ const serverProductCache = new Map()
 async function getProducts() {
   const result = await supabaseRequest('products?select=*&order=createdAt.asc')
   let dbProducts = (result.status === 200 && Array.isArray(result.body)) ? result.body : []
-  
+
   if (serverProductCache.size > 0) {
     const prodMap = new Map(dbProducts.map((p) => [p.slug, p]))
     for (const [slug, item] of serverProductCache.entries()) {
@@ -73,6 +73,8 @@ async function getProducts() {
     }
     dbProducts = Array.from(prodMap.values())
   }
+
+  dbProducts = dbProducts.filter((p) => p.slug && !p.slug.startsWith('_system_') && p.category !== '_system')
 
   return { status: 200, body: dbProducts }
 }
@@ -612,6 +614,178 @@ async function handleChangePassword(body) {
   return { status: 200, body: { success: true, message: 'Password updated successfully!' } }
 }
 
+const DEFAULT_SETTINGS = {
+  isStoreOpen: true,
+  storeClosedNotice: 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:59 PM.',
+  deliveryFee: 4.99,
+  taxRate: 0.08,
+  freeDeliveryThreshold: 500,
+  storeName: 'Bun Maska Café',
+  phone: '8085700750',
+  email: 'amansoni16041996@gmail.com',
+  address: 'Sisodiya Colony, Guna M.P.',
+  city: 'Guna, M.P.',
+  zip: '473001',
+  hours: 'Mon - Sun: 11:00 AM - 11:59 PM',
+  openHour: 11,
+  openMinute: 0,
+  closeHour: 23,
+  closeMinute: 59,
+}
+
+const DEFAULT_HERO_SLIDES = [
+  {
+    id: "slide-1",
+    title: "Classic Taste • Premium Maska",
+    subtitle: "Freshly grilled Bun Maska, Nutella Bun Maska, and Rabdi Bun Maska made with love.",
+    image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1500&q=80",
+    badge: "Signature Buns"
+  },
+  {
+    id: "slide-2",
+    title: "Maggi, Momos & Loaded Fries",
+    subtitle: "Tadka Maggi, Cheese Peri Peri Fries, and Crispy Momos for every hunger craving.",
+    image: "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=1500&q=80",
+    badge: "Har Bite Me Maska"
+  },
+  {
+    id: "slide-3",
+    title: "Maska Loaded Sandwiches",
+    subtitle: "Double-decker loaded sandwiches packed with fresh veggies, extra cheese & signature butter.",
+    image: "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=1500&q=80",
+    badge: "Chef Special"
+  }
+]
+
+const SLIDE_IMAGE_BUCKET = 'hero-banner-slider'
+
+async function uploadSlideImage(slideId, dataUrl, contentType = 'image/jpeg') {
+  const { url, key } = getSupabaseConfig()
+  if (!url || !(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)) {
+    return { status: 503, body: { error: 'Supabase Storage is not configured on the server.' } }
+  }
+  if (!dataUrl || !String(dataUrl).startsWith('data:image/')) {
+    return { status: 400, body: { error: 'An image file is required.' } }
+  }
+
+  const [, base64] = String(dataUrl).split(',', 2)
+  const file = Buffer.from(base64 || '', 'base64')
+  if (!file.length || file.length > 5 * 1024 * 1024) return { status: 400, body: { error: 'Image must be 5 MB or smaller.' } }
+
+  const extension = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : contentType === 'image/gif' ? 'gif' : 'jpg'
+  const safeId = (slideId || 'slide').replace(/[^a-z0-9-]/gi, '-')
+  const objectPath = `slides/${safeId}-${Date.now()}.${extension}`
+  const headers = { apikey: key, Authorization: `Bearer ${key}` }
+
+  await fetch(`${url}/storage/v1/bucket`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: SLIDE_IMAGE_BUCKET, name: SLIDE_IMAGE_BUCKET, public: true }),
+  }).catch(() => {})
+  await fetch(`${url}/storage/v1/bucket/${SLIDE_IMAGE_BUCKET}`, {
+    method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ public: true }),
+  }).catch(() => {})
+
+
+  const response = await fetch(`${url}/storage/v1/object/${SLIDE_IMAGE_BUCKET}/${objectPath}`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': contentType, 'x-upsert': 'true' },
+    body: file,
+  })
+  if (!response.ok) return { status: response.status, body: { error: await response.text() || 'Storage upload failed.' } }
+  return { status: 201, body: { imageUrl: `${url}/storage/v1/object/public/${SLIDE_IMAGE_BUCKET}/${objectPath}` } }
+}
+
+const serverSettingsCache = new Map()
+const serverSlidesCache = new Map()
+
+async function getSettings() {
+  const result = await supabaseRequest('products?slug=eq._system_store_settings&select=*')
+  if (result.status === 200 && Array.isArray(result.body) && result.body.length > 0) {
+    const val = result.body[0].variants
+    if (val && typeof val === 'object') {
+      serverSettingsCache.set('settings', val)
+      return { status: 200, body: val }
+    }
+  }
+  const cached = serverSettingsCache.get('settings')
+  return { status: 200, body: cached || DEFAULT_SETTINGS }
+}
+
+async function saveSettings(body) {
+  if (!body || typeof body !== 'object') {
+    return { status: 400, body: { error: 'Invalid settings body.' } }
+  }
+  serverSettingsCache.set('settings', body)
+  const itemToSave = {
+    id: '00000000-0000-0000-0000-000000000001',
+    slug: '_system_store_settings',
+    title: 'System Store Settings',
+    category: '_system',
+    description: 'System settings for cafe profile, contact info and rates',
+    price: 0,
+    image: '',
+    variants: body,
+    inStock: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const result = await supabaseRequest('products?on_conflict=slug', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(itemToSave),
+  })
+  if (result.status >= 400) {
+    console.warn('Supabase DB settings save notice, using server cached settings:', result.body)
+  }
+  return { status: 200, body: { success: true, settings: body } }
+}
+
+async function getSlides() {
+  const result = await supabaseRequest('products?slug=eq._system_hero_slides&select=*')
+  if (result.status === 200 && Array.isArray(result.body) && result.body.length > 0) {
+    const val = result.body[0].variants
+    if (Array.isArray(val)) {
+      serverSlidesCache.set('slides', val)
+      return { status: 200, body: val }
+    }
+  }
+  const cached = serverSlidesCache.get('slides')
+  return { status: 200, body: cached || DEFAULT_HERO_SLIDES }
+}
+
+
+async function saveSlides(body) {
+  if (!Array.isArray(body)) {
+    return { status: 400, body: { error: 'Hero slides body must be an array.' } }
+  }
+  serverSlidesCache.set('slides', body)
+  const itemToSave = {
+    id: '00000000-0000-0000-0000-000000000002',
+    slug: '_system_hero_slides',
+    title: 'System Hero Slides',
+    category: '_system',
+    description: 'Homepage Hero Slides',
+    price: 0,
+    image: '',
+    variants: body,
+    inStock: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const result = await supabaseRequest('products?on_conflict=slug', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(itemToSave),
+  })
+  if (result.status >= 400) {
+    console.warn('Supabase DB slides save notice, using server cached slides:', result.body)
+  }
+  return { status: 200, body: { success: true, slides: body } }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
@@ -630,33 +804,43 @@ export default async function handler(req, res) {
       ? await registerAuthUser(req.body || {})
       : route.endsWith('/auth/login') && req.method === 'POST'
         ? await loginAuthUser(req.body || {})
-      : route.endsWith('/auth/forgot-password') && req.method === 'POST'
-        ? await handleForgotPassword(req.body || {})
-      : route.endsWith('/auth/reset-password') && req.method === 'POST'
-        ? await handleResetPassword(req.body || {})
-      : route.endsWith('/auth/change-password') && (req.method === 'PUT' || req.method === 'POST')
-        ? await handleChangePassword(req.body || {})
-      : route.endsWith('/auth/profile') && (req.method === 'PUT' || req.method === 'PATCH')
-        ? await updateUserProfile(req.body || {})
-      : route.endsWith('/db/products') && req.method === 'GET'
-      ? await getProducts()
-      : route.endsWith('/db/product-images') && req.method === 'POST'
-        ? await uploadProductImage(req.body?.slug, req.body?.image, req.body?.contentType)
-      : productSlug && req.method === 'PUT'
-        ? await saveProduct(decodeURIComponent(productSlug), req.body || {})
-      : productSlug && req.method === 'DELETE'
-        ? await deleteProduct(decodeURIComponent(productSlug))
-      : orderStatusId && (req.method === 'PATCH' || req.method === 'PUT')
-        ? await updateOrderStatusInDb(orderStatusId, req.body?.status)
-      : route.endsWith('/db/orders') && req.method === 'GET'
-      ? await getOrders(requestUrl.searchParams)
-      : route.endsWith('/db/orders') && req.method === 'POST'
-        ? await saveOrder(req.body || {})
-        : route.endsWith('/payments/create-order') && req.method === 'POST'
-      ? await createRazorpayOrder(req.body || {})
-      : route.endsWith('/payments/verify') && req.method === 'POST'
-          ? await verifyPayment(req.body || {})
-        : { status: 404, body: { error: 'API route not found' } }
+        : route.endsWith('/auth/forgot-password') && req.method === 'POST'
+          ? await handleForgotPassword(req.body || {})
+          : route.endsWith('/auth/reset-password') && req.method === 'POST'
+            ? await handleResetPassword(req.body || {})
+            : route.endsWith('/auth/change-password') && (req.method === 'PUT' || req.method === 'POST')
+              ? await handleChangePassword(req.body || {})
+              : route.endsWith('/auth/profile') && (req.method === 'PUT' || req.method === 'PATCH')
+                ? await updateUserProfile(req.body || {})
+                : route.endsWith('/db/settings') && req.method === 'GET'
+                  ? await getSettings()
+                  : route.endsWith('/db/settings') && (req.method === 'PUT' || req.method === 'POST')
+                    ? await saveSettings(req.body || {})
+                    : route.endsWith('/db/slides') && req.method === 'GET'
+                      ? await getSlides()
+                      : route.endsWith('/db/slides') && (req.method === 'PUT' || req.method === 'POST')
+                        ? await saveSlides(req.body || {})
+                        : route.endsWith('/db/slide-images') && req.method === 'POST'
+                          ? await uploadSlideImage(req.body?.slideId, req.body?.image, req.body?.contentType)
+                          : route.endsWith('/db/products') && req.method === 'GET'
+                            ? await getProducts()
+                            : route.endsWith('/db/product-images') && req.method === 'POST'
+                              ? await uploadProductImage(req.body?.slug, req.body?.image, req.body?.contentType)
+                              : productSlug && req.method === 'PUT'
+                                ? await saveProduct(decodeURIComponent(productSlug), req.body || {})
+                                : productSlug && req.method === 'DELETE'
+                                  ? await deleteProduct(decodeURIComponent(productSlug))
+                                  : orderStatusId && (req.method === 'PATCH' || req.method === 'PUT')
+                                    ? await updateOrderStatusInDb(orderStatusId, req.body?.status)
+                                    : route.endsWith('/db/orders') && req.method === 'GET'
+                                      ? await getOrders(requestUrl.searchParams)
+                                      : route.endsWith('/db/orders') && req.method === 'POST'
+                                        ? await saveOrder(req.body || {})
+                                        : route.endsWith('/payments/create-order') && req.method === 'POST'
+                                          ? await createRazorpayOrder(req.body || {})
+                                          : route.endsWith('/payments/verify') && req.method === 'POST'
+                                            ? await verifyPayment(req.body || {})
+                                            : { status: 404, body: { error: 'API route not found' } }
 
     return json(res, result.status, result.body)
   } catch (error) {

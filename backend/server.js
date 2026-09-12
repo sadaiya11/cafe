@@ -444,11 +444,13 @@ app.put('/api/auth/change-password', async (req, res) => {
 app.get('/api/db/products', async (req, res) => {
   try {
     const products = await prisma.product.findMany()
-    res.json(products)
+    const customerProducts = products.filter((p) => p.slug && !p.slug.startsWith('_system_') && p.category !== '_system')
+    res.json(customerProducts)
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch products', details: error.message })
   }
 })
+
 
 // Route: PUT /api/db/products/:slug - Update the fields shown to customers.
 app.put('/api/db/products/:slug', async (req, res) => {
@@ -517,6 +519,63 @@ app.post('/api/db/product-images', async (req, res) => {
     res.status(500).json({ error: 'Failed to upload product image', details: error.message })
   }
 })
+
+const SLIDE_IMAGE_BUCKET = 'hero-banner-slider'
+
+async function uploadSlideImage(slideId, dataUrl, contentType = 'image/jpeg') {
+  if (!dataUrl || !String(dataUrl).startsWith('data:image/')) {
+    throw new Error('An image file is required.')
+  }
+  const storageKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+  if (!process.env.SUPABASE_URL || !storageKey) {
+    throw new Error('Supabase Storage requires SUPABASE_URL and a key.')
+  }
+
+  const [, base64] = String(dataUrl).split(',', 2)
+  const file = Buffer.from(base64 || '', 'base64')
+  if (!file.length || file.length > 5 * 1024 * 1024) throw new Error('Image must be 5 MB or smaller.')
+
+  const extension = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : contentType === 'image/gif' ? 'gif' : 'jpg'
+  const safeId = (slideId || 'slide').replace(/[^a-z0-9-]/gi, '-')
+  const objectPath = `slides/${safeId}-${Date.now()}.${extension}`
+  const headers = {
+    apikey: storageKey,
+    Authorization: `Bearer ${storageKey}`,
+  }
+
+  await fetch(`${process.env.SUPABASE_URL}/storage/v1/bucket`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: SLIDE_IMAGE_BUCKET, name: SLIDE_IMAGE_BUCKET, public: true }),
+  }).catch(() => {})
+  await fetch(`${process.env.SUPABASE_URL}/storage/v1/bucket/${SLIDE_IMAGE_BUCKET}`, {
+    method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ public: true }),
+  }).catch(() => {})
+
+
+  const response = await fetch(`${process.env.SUPABASE_URL}/storage/v1/object/${SLIDE_IMAGE_BUCKET}/${objectPath}`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': contentType, 'x-upsert': 'true' },
+    body: file,
+  })
+  if (!response.ok) throw new Error(await response.text() || 'Storage upload failed.')
+
+  return `${process.env.SUPABASE_URL}/storage/v1/object/public/${SLIDE_IMAGE_BUCKET}/${objectPath}`
+}
+
+// Route: POST /api/db/slide-images - Upload a slide banner image to hero-banner-slider bucket.
+app.post('/api/db/slide-images', async (req, res) => {
+  try {
+    const { slideId, image, contentType } = req.body
+    const imageUrl = await uploadSlideImage(slideId, image, contentType)
+    res.status(201).json({ imageUrl })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to upload slide image', details: error.message })
+  }
+})
+
 
 // Route: POST /api/db/orders - Save Order into Supabase DB via Prisma
 app.post('/api/db/orders', async (req, res) => {
@@ -707,6 +766,95 @@ app.post('/api/payments/verify', async (req, res) => {
   }
 })
 
+const DEFAULT_SETTINGS = {
+  isStoreOpen: true,
+  storeClosedNotice: 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:59 PM.',
+  deliveryFee: 4.99,
+  taxRate: 0.08,
+  freeDeliveryThreshold: 500,
+  storeName: 'Bun Maska Café',
+  phone: '8085700750',
+  email: 'amansoni16041996@gmail.com',
+  address: 'Sisodiya Colony, Guna M.P.',
+  city: 'Guna, M.P.',
+  zip: '473001',
+  hours: 'Mon - Sun: 11:00 AM - 11:59 PM',
+  openHour: 11,
+  openMinute: 0,
+  closeHour: 23,
+  closeMinute: 59,
+}
+
+const DEFAULT_HERO_SLIDES = [
+  {
+    id: "slide-1",
+    title: "Classic Taste • Premium Maska",
+    subtitle: "Freshly grilled Bun Maska, Nutella Bun Maska, and Rabdi Bun Maska made with love.",
+    image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1500&q=80",
+    badge: "Signature Buns"
+  },
+  {
+    id: "slide-2",
+    title: "Maggi, Momos & Loaded Fries",
+    subtitle: "Tadka Maggi, Cheese Peri Peri Fries, and Crispy Momos for every hunger craving.",
+    image: "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=1500&q=80",
+    badge: "Har Bite Me Maska"
+  },
+  {
+    id: "slide-3",
+    title: "Maska Loaded Sandwiches",
+    subtitle: "Double-decker loaded sandwiches packed with fresh veggies, extra cheese & signature butter.",
+    image: "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=1500&q=80",
+    badge: "Chef Special"
+  }
+]
+
+// Store Settings & Hero Slides Server In-Memory & DB Cache
+let serverSettingsData = null
+let serverSlidesData = null
+
+app.get('/api/db/settings', (req, res) => {
+  res.json(serverSettingsData || DEFAULT_SETTINGS)
+})
+
+app.put('/api/db/settings', (req, res) => {
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).json({ error: 'Invalid settings body.' })
+  }
+  serverSettingsData = req.body
+  res.json({ success: true, settings: serverSettingsData })
+})
+
+app.post('/api/db/settings', (req, res) => {
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).json({ error: 'Invalid settings body.' })
+  }
+  serverSettingsData = req.body
+  res.json({ success: true, settings: serverSettingsData })
+})
+
+app.get('/api/db/slides', (req, res) => {
+  res.json(serverSlidesData || DEFAULT_HERO_SLIDES)
+})
+
+
+app.put('/api/db/slides', (req, res) => {
+  if (!Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Hero slides body must be an array.' })
+  }
+  serverSlidesData = req.body
+  res.json({ success: true, slides: serverSlidesData })
+})
+
+app.post('/api/db/slides', (req, res) => {
+  if (!Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Hero slides body must be an array.' })
+  }
+  serverSlidesData = req.body
+  res.json({ success: true, slides: serverSlidesData })
+})
+
 app.listen(PORT, () => {
   console.log(`🚀 Bun Maska Cafe Backend & Supabase Database server running on port ${PORT}`)
 })
+

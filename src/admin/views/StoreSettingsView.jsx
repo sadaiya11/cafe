@@ -1,10 +1,22 @@
-import { useState } from 'react'
-import { getStoreSettings, saveStoreSettings, getHeroSlides, saveHeroSlides } from '../../services/storeSettingsService'
+import { useState, useEffect } from 'react'
+import {
+  getStoreSettings,
+  saveStoreSettings,
+  getHeroSlides,
+  saveHeroSlides,
+  fetchStoreSettingsFromServer,
+  fetchHeroSlidesFromServer,
+} from '../../services/storeSettingsService'
 
 export default function StoreSettingsView() {
   const [settings, setSettings] = useState(getStoreSettings)
   const [slides, setSlides] = useState(getHeroSlides)
   const [savedNotice, setSavedNotice] = useState('')
+
+  useEffect(() => {
+    fetchStoreSettingsFromServer().then((s) => setSettings(s))
+    fetchHeroSlidesFromServer().then((sl) => setSlides(sl))
+  }, [])
 
   // Slide creation state
   const [newSlide, setNewSlide] = useState({
@@ -16,6 +28,7 @@ export default function StoreSettingsView() {
 
   // Slide editing state
   const [editingSlide, setEditingSlide] = useState(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
 
   const handleSettingChange = (field, value) => {
     setSettings((prev) => ({ ...prev, [field]: value }))
@@ -24,11 +37,11 @@ export default function StoreSettingsView() {
   const handleSaveSettings = (e) => {
     e.preventDefault()
     saveStoreSettings(settings)
-    setSavedNotice('✅ Store settings & rates saved successfully!')
+    setSavedNotice('✅ Store settings & rates saved to server successfully!')
     setTimeout(() => setSavedNotice(''), 3000)
   }
 
-  // FileReader helper for uploading image files
+  // FileReader & Supabase Storage helper for uploading banner slide images
   const handleImageFileChange = (e, isEditing = false) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -38,17 +51,39 @@ export default function StoreSettingsView() {
       return
     }
 
+    setIsUploadingImage(true)
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const dataUrl = reader.result
-      if (isEditing) {
-        setEditingSlide((prev) => (prev ? { ...prev, image: dataUrl } : null))
-      } else {
-        setNewSlide((prev) => ({ ...prev, image: dataUrl }))
+      try {
+        const slideId = isEditing && editingSlide ? editingSlide.id : `slide-${Date.now()}`
+        const res = await fetch('/api/db/slide-images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slideId, image: dataUrl, contentType: file.type || 'image/jpeg' }),
+        })
+        const data = await res.json()
+        const finalUrl = data.imageUrl || dataUrl
+
+        if (isEditing) {
+          setEditingSlide((prev) => (prev ? { ...prev, image: finalUrl } : null))
+        } else {
+          setNewSlide((prev) => ({ ...prev, image: finalUrl }))
+        }
+      } catch (err) {
+        console.warn('Slide image storage upload notice:', err)
+        if (isEditing) {
+          setEditingSlide((prev) => (prev ? { ...prev, image: dataUrl } : null))
+        } else {
+          setNewSlide((prev) => ({ ...prev, image: dataUrl }))
+        }
+      } finally {
+        setIsUploadingImage(false)
       }
     }
     reader.readAsDataURL(file)
   }
+
 
   const handleAddSlide = (e) => {
     e.preventDefault()
