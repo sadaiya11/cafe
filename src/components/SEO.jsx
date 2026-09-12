@@ -2,8 +2,8 @@ import { useEffect } from 'react'
 
 export default function SEO({
   title,
-  description = 'Bun Maska Café - Fresh artisanal breads, Irani chai, gourmet coffee, and delicious snacks prepared fresh for you.',
-  keywords = 'bun maska, cafe, irani chai, coffee, bakery, snacks, online food order, restaurant, breakfast',
+  description = 'Bun Maska Café offers delicious Bun Maska, fresh Bakery items, Breakfast Café specials, Snacks, and Sandwiches.',
+  keywords = 'Bun Maska, Cafe, Bakery, Breakfast Cafe, Snacks, Sandwich, Sandwitch',
   canonical,
   ogImage = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80',
   ogType = 'website',
@@ -12,7 +12,7 @@ export default function SEO({
 }) {
   useEffect(() => {
     const siteName = 'Bun Maska Café'
-    const fullTitle = title ? (title.includes(siteName) ? title : `${title} | ${siteName}`) : `${siteName} - Fresh Breads, Chai & Gourmet Coffee`
+    const fullTitle = title ? (title.includes(siteName) ? title : `${title} | ${siteName}`) : `${siteName} - Bun Maska, Bakery, Breakfast Café & Snacks`
     document.title = fullTitle
 
     const setMetaTag = (selector, attributeName, attributeValue, content) => {
