@@ -10,7 +10,12 @@ export default function ProductListPage() {
   const [searchParams] = useSearchParams()
   const [products, setProducts] = useState(getLocalCatalog)
   const category = searchParams.get('category')
-  useEffect(() => { loadCatalog().then(setProducts) }, [])
+  useEffect(() => {
+    const refresh = () => loadCatalog().then(setProducts)
+    refresh()
+    window.addEventListener('bun_catalog_updated', refresh)
+    return () => window.removeEventListener('bun_catalog_updated', refresh)
+  }, [])
   const availableProducts = products.filter((product) => product.inStock !== false)
   const visibleProducts = category ? availableProducts.filter((product) => product.category === category) : availableProducts
 

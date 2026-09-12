@@ -19,7 +19,10 @@ export default function ProductDetailPage() {
   const [products, setProducts] = useState(getLocalCatalog)
   useEffect(() => {
     window.scrollTo(0, 0)
-    loadCatalog().then(setProducts)
+    const refresh = () => loadCatalog().then(setProducts)
+    refresh()
+    window.addEventListener('bun_catalog_updated', refresh)
+    return () => window.removeEventListener('bun_catalog_updated', refresh)
   }, [slug])
   const product = products.find((item) => item.slug === slug)
   const navigate = useNavigate()

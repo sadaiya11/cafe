@@ -23,21 +23,34 @@ export function mergeCatalogProducts(savedProducts = []) {
   const savedBySlug = new Map(savedProducts.map((product) => [product.slug, product]))
 
   const fallback = cloneProducts(fallbackProducts)
-  const merged = fallback
+
+  // Custom products created by user not in fallback catalog
+  const fallbackSlugs = new Set(fallback.map((f) => f.slug))
+  const customSaved = savedProducts.filter((s) => s && s.slug && !fallbackSlugs.has(s.slug) && !deletedSlugs.has(s.slug))
+
+  const mergedFallback = fallback
     .filter((product) => !deletedSlugs.has(product.slug))
     .map((product) => {
       const saved = savedBySlug.get(product.slug)
       if (!saved) return { ...product, inStock: product.inStock !== false }
 
-      const variants = Array.isArray(saved.variants) && saved.variants.length
+      const savedPrice = Number(saved.price ?? saved.variants?.[0]?.price)
+      const hasSavedPrice = Number.isFinite(savedPrice) && savedPrice > 0
+
+      let variants = Array.isArray(saved.variants) && saved.variants.length
         ? saved.variants
-        : product.variants.map((variant, index) => index === 0 && Number.isFinite(Number(saved.price))
-          ? { ...variant, price: Number(saved.price) }
-          : variant)
+        : product.variants
+
+      if (hasSavedPrice) {
+        variants = variants.map((v, index) => (index === 0 ? { ...v, price: savedPrice } : v))
+      }
+
+      const finalPrice = hasSavedPrice ? savedPrice : Number(variants[0]?.price || product.price)
 
       return {
         ...product,
         ...saved,
+        price: finalPrice,
         title: saved.title || product.title,
         description: saved.description || product.description,
         image: saved.image || product.image,
@@ -46,7 +59,21 @@ export function mergeCatalogProducts(savedProducts = []) {
       }
     })
 
-  return merged
+  const mergedCustom = customSaved.map((saved) => {
+    const savedPrice = Number(saved.price ?? (saved.variants?.[0]?.price || 0))
+    const variants = Array.isArray(saved.variants) && saved.variants.length
+      ? saved.variants.map((v, index) => (index === 0 ? { ...v, price: savedPrice } : v))
+      : [{ size: 'standard', label: 'Standard', price: savedPrice, image: saved.image || '' }]
+
+    return {
+      ...saved,
+      price: savedPrice,
+      variants,
+      inStock: saved.inStock !== false,
+    }
+  })
+
+  return [...mergedFallback, ...mergedCustom]
 }
 
 function getStoredProducts() {
@@ -70,8 +97,12 @@ export async function loadCatalog() {
   const localProducts = getStoredProducts()
   try {
     const remoteProducts = await getProducts()
-    const remoteSlugs = new Set(remoteProducts.map((product) => product.slug))
-    return mergeCatalogProducts([...localProducts.filter((product) => !remoteSlugs.has(product.slug)), ...remoteProducts])
+    if (Array.isArray(remoteProducts) && remoteProducts.length > 0) {
+      const remoteSlugs = new Set(remoteProducts.map((product) => product.slug))
+      const combined = [...remoteProducts, ...localProducts.filter((product) => !remoteSlugs.has(product.slug))]
+      return mergeCatalogProducts(combined)
+    }
+    return mergeCatalogProducts(localProducts)
   } catch (error) {
     console.warn('Product API unavailable; showing local catalog:', error.message)
     return mergeCatalogProducts(localProducts)
@@ -79,12 +110,19 @@ export async function loadCatalog() {
 }
 
 export async function updateCatalogProduct(product) {
+  const targetPrice = Number(product.price ?? product.variants?.[0]?.price ?? 0)
+  const variants = Array.isArray(product.variants) && product.variants.length
+    ? product.variants.map((v, i) => (i === 0 ? { ...v, price: targetPrice } : v))
+    : [{ size: 'standard', label: 'Standard', price: targetPrice, image: product.image || '' }]
+
   const normalized = {
     ...product,
     inStock: product.inStock !== false,
-    price: Number(product.variants?.[0]?.price || 0),
-    image: product.variants?.[0]?.image || product.image || '',
+    price: targetPrice,
+    image: variants[0]?.image || product.image || '',
+    variants,
   }
+
   const stored = getStoredProducts().filter((item) => item.slug !== normalized.slug)
   storeProducts([...stored, normalized])
 
@@ -93,12 +131,14 @@ export async function updateCatalogProduct(product) {
     if (saved?.slug) {
       const latestStored = getStoredProducts().filter((item) => item.slug !== saved.slug)
       storeProducts([...latestStored, { ...normalized, ...saved }])
+      window.dispatchEvent(new Event('bun_catalog_updated'))
       return mergeCatalogProducts([{ ...normalized, ...saved }]).find((item) => item.slug === product.slug) || normalized
     }
   } catch (err) {
     console.warn('API save notice:', err.message)
   }
 
+  window.dispatchEvent(new Event('bun_catalog_updated'))
   return mergeCatalogProducts([normalized]).find((item) => item.slug === product.slug) || normalized
 }
 
