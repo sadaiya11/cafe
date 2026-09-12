@@ -37,7 +37,10 @@ export default function DashboardPage() {
   const [products, setProducts] = useState(getLocalCatalog)
 
   useEffect(() => {
-    loadCatalog().then(setProducts)
+    const refresh = () => loadCatalog().then(setProducts)
+    refresh()
+    window.addEventListener('bun_catalog_updated', refresh)
+    return () => window.removeEventListener('bun_catalog_updated', refresh)
   }, [])
 
   const popularItems = products.slice(0, 3)

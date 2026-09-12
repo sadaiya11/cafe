@@ -357,14 +357,40 @@ app.put('/api/db/products/:slug', async (req, res) => {
   try {
     const slug = req.params.slug
     const { title, category, tag, description, price, image, variants, inStock } = req.body
-    if (!slug || !title || !description || !category || !Number.isFinite(Number(price))) {
-      return res.status(400).json({ error: 'Slug, title, category, description, and a valid price are required.' })
+    const numPrice = Number(price)
+    if (!slug || !title || !Number.isFinite(numPrice)) {
+      return res.status(400).json({ error: 'Slug, title, and a valid price are required.' })
     }
+
+    const normalizedCategory = category || 'Bun Maska'
+    const normalizedDesc = description !== undefined && description !== null ? String(description) : ''
+    const normalizedVariants = Array.isArray(variants) && variants.length
+      ? variants.map((v, i) => (i === 0 ? { ...v, price: numPrice } : v))
+      : [{ size: 'standard', label: 'Standard', price: numPrice, image: image || '' }]
 
     const product = await prisma.product.upsert({
       where: { slug },
-      update: { title, category, tag, description, price: Number(price), image: image || '', variants, inStock: inStock !== false },
-      create: { slug, title, category, tag, description, price: Number(price), image: image || '', variants, inStock: inStock !== false },
+      update: {
+        title,
+        category: normalizedCategory,
+        tag: tag || '',
+        description: normalizedDesc,
+        price: numPrice,
+        image: image || '',
+        variants: normalizedVariants,
+        inStock: inStock !== false,
+      },
+      create: {
+        slug,
+        title,
+        category: normalizedCategory,
+        tag: tag || '',
+        description: normalizedDesc,
+        price: numPrice,
+        image: image || '',
+        variants: normalizedVariants,
+        inStock: inStock !== false,
+      },
     })
     res.json(product)
   } catch (error) {

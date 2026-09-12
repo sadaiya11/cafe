@@ -35,7 +35,7 @@ export function mergeCatalogProducts(savedProducts = []) {
       if (!saved) return { ...product, inStock: product.inStock !== false }
 
       const savedPrice = Number(saved.price ?? saved.variants?.[0]?.price)
-      const hasSavedPrice = Number.isFinite(savedPrice) && savedPrice > 0
+      const hasSavedPrice = Number.isFinite(savedPrice) && savedPrice >= 0
 
       let variants = Array.isArray(saved.variants) && saved.variants.length
         ? saved.variants
@@ -52,7 +52,7 @@ export function mergeCatalogProducts(savedProducts = []) {
         ...saved,
         price: finalPrice,
         title: saved.title || product.title,
-        description: saved.description || product.description,
+        description: saved.description !== undefined && saved.description !== null ? saved.description : product.description,
         image: saved.image || product.image,
         variants,
         inStock: saved.inStock !== false,
@@ -100,7 +100,9 @@ export async function loadCatalog() {
     if (Array.isArray(remoteProducts) && remoteProducts.length > 0) {
       const remoteSlugs = new Set(remoteProducts.map((product) => product.slug))
       const combined = [...remoteProducts, ...localProducts.filter((product) => !remoteSlugs.has(product.slug))]
-      return mergeCatalogProducts(combined)
+      const merged = mergeCatalogProducts(combined)
+      storeProducts(merged)
+      return merged
     }
     return mergeCatalogProducts(localProducts)
   } catch (error) {
@@ -128,11 +130,12 @@ export async function updateCatalogProduct(product) {
 
   try {
     const saved = await saveProduct(normalized)
-    if (saved?.slug) {
-      const latestStored = getStoredProducts().filter((item) => item.slug !== saved.slug)
-      storeProducts([...latestStored, { ...normalized, ...saved }])
+    if (saved?.slug || saved?.title) {
+      const savedItem = { ...normalized, ...(saved || {}) }
+      const latestStored = getStoredProducts().filter((item) => item.slug !== savedItem.slug)
+      storeProducts([...latestStored, savedItem])
       window.dispatchEvent(new Event('bun_catalog_updated'))
-      return mergeCatalogProducts([{ ...normalized, ...saved }]).find((item) => item.slug === product.slug) || normalized
+      return mergeCatalogProducts([savedItem]).find((item) => item.slug === product.slug) || savedItem
     }
   } catch (err) {
     console.warn('API save notice:', err.message)
