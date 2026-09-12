@@ -163,7 +163,7 @@ export default function CheckoutPage() {
       await loadRazorpayScript()
 
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TajXSNM4LNb64R',
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: order.amount,
         currency: order.currency || 'INR',
         name: 'Bun Maska Café',
