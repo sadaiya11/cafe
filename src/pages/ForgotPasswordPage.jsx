@@ -54,33 +54,21 @@ export default function ForgotPasswordPage() {
         {resetData ? (
           <div className="space-y-6 text-center">
             <div className="rounded-3xl bg-emerald-50 border border-emerald-200 p-6 text-emerald-900">
-              <div className="text-4xl mb-2">📧</div>
-              <h2 className="text-lg font-black text-emerald-800">Verification Link Sent!</h2>
-              <p className="mt-2 text-xs font-semibold text-emerald-700">
-                A password reset verification email has been sent to: <strong className="underline">{resetData.email}</strong>.
+              <div className="text-5xl mb-3">📧</div>
+              <h2 className="text-xl font-black text-emerald-900">Check Your Email</h2>
+              <p className="mt-2 text-xs font-semibold text-emerald-800 leading-relaxed">
+                A password reset verification link has been sent to:<br />
+                <strong className="text-emerald-950 font-bold underline text-sm">{resetData.email}</strong>
               </p>
-            </div>
-
-            {/* Direct Verification Link Preview Box for Quick Testing */}
-            <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-4 text-left space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-orange-700">
-                🔗 Instant Verification Link Preview:
+              <p className="mt-4 text-xs text-slate-500">
+                Please check your Google Mail inbox (and Spam folder) and click the link inside the email to reset your password.
               </p>
-              <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                Click the link below to verify your email and open the reset password screen:
-              </p>
-              <a
-                href={resetData.resetLink}
-                className="block text-xs font-bold text-orange-600 underline break-all bg-white p-3 rounded-xl border border-orange-200 hover:bg-orange-100 transition"
-              >
-                {resetData.resetLink}
-              </a>
             </div>
 
             <div className="pt-2">
               <Link
                 to="/login"
-                className="inline-block rounded-full bg-slate-900 px-6 py-3 text-xs font-bold text-white transition hover:bg-slate-800"
+                className="inline-block rounded-full bg-slate-900 px-6 py-3.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-md"
               >
                 ← Return to Sign In
               </Link>

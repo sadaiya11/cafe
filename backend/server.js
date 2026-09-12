@@ -1,9 +1,14 @@
 import express from 'express'
 import cors from 'cors'
-import 'dotenv/config'
+import dotenv from 'dotenv'
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
+import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 import prisma from './lib/prisma.js'
+
+dotenv.config({ path: '../.env' })
+dotenv.config({ path: '.env', override: true })
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -211,8 +216,111 @@ app.put('/api/auth/profile', async (req, res) => {
   }
 })
 
-// In-Memory store for Password Reset Verification Tokens
-const resetTokensStore = new Map()
+const getResetTokenSecret = () => process.env.RESET_TOKEN_SECRET || process.env.SUPABASE_SECRET_KEY
+
+const createResetToken = (email, expiresAt) => {
+  const payload = Buffer.from(JSON.stringify({ email, expiresAt })).toString('base64url')
+  const signature = crypto.createHmac('sha256', getResetTokenSecret()).update(payload).digest('base64url')
+  return `${payload}.${signature}`
+}
+
+const verifyResetToken = (token, email) => {
+  const secret = getResetTokenSecret()
+  const [payload, signature] = token.split('.')
+  if (!secret || !payload || !signature) return false
+
+  const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url')
+  if (signature.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return false
+
+  try {
+    const tokenData = JSON.parse(Buffer.from(payload, 'base64url').toString())
+    return tokenData.email === email && tokenData.expiresAt > Date.now()
+  } catch {
+    return false
+  }
+}
+
+async function sendResetEmail(toEmail, resetLink) {
+  const emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER || 'sadaiya11@gmail.com'
+  const emailPass = process.env.EMAIL_PASSWORD || process.env.GMAIL_PASS || process.env.EMAIL_PASS || 'jbcr skgv pilj jbsg'
+  const emailHost = process.env.EMAIL_HOST || 'smtp.gmail.com'
+  const emailPort = Number(process.env.EMAIL_PORT) || 587
+  const emailFrom = process.env.EMAIL_FROM || `Bun Maska Cafe <${emailUser}>`
+
+  const htmlContent = `
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background-color: #f8fafc; border-radius: 24px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h1 style="color: #ea580c; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">Bun Maska Café</h1>
+        <p style="color: #64748b; font-size: 13px; font-weight: 600; margin-top: 4px;">Artisanal Breads, Irani Chai & Gourmet Snacks</p>
+      </div>
+      <div style="background-color: #ffffff; padding: 28px; border-radius: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+        <h2 style="color: #0f172a; font-size: 18px; font-weight: 800; margin-top: 0;">Password Reset Request</h2>
+        <p style="color: #475569; font-size: 14px; line-height: 1.6;">
+          We received a password reset request for your account (<strong>${toEmail}</strong>). Click the button below to set a new password:
+        </p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${resetLink}" style="background-color: #ea580c; color: #ffffff; text-decoration: none; padding: 14px 32px; font-weight: 800; border-radius: 9999px; display: inline-block; font-size: 14px; box-shadow: 0 4px 14px rgba(234, 88, 12, 0.3);">
+            🔑 Reset Password
+          </a>
+        </div>
+        <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin-bottom: 0;">
+          If you did not request this email, you can safely ignore it. Your account password will remain unchanged.<br>
+          <em>This link is valid for 1 hour.</em>
+        </p>
+      </div>
+    </div>
+  `
+
+  // 1. Try Nodemailer SMTP (exact match with school-erp project)
+  if (emailHost && emailUser && emailPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: emailHost,
+        port: emailPort,
+        secure: emailPort === 465,
+        auth: { user: emailUser, pass: emailPass },
+      })
+      await transporter.sendMail({
+        from: emailFrom,
+        to: toEmail,
+        subject: '🔑 Reset Your Bun Maska Café Password',
+        html: htmlContent,
+      })
+      console.log(`📧 Nodemailer SMTP email sent successfully to ${toEmail}`)
+      return { success: true }
+    } catch (err) {
+      console.warn('⚠️ Nodemailer SMTP send error:', err.message)
+      return { success: false, error: err.message }
+    }
+  }
+
+  // 2. Try Resend API
+  const resendApiKey = process.env.RESEND_API_KEY
+  let resendFrom = process.env.RESEND_FROM_EMAIL || 'Bun Maska Cafe <onboarding@resend.dev>'
+  if (resendFrom.includes('@gmail.com')) {
+    resendFrom = 'Bun Maska Cafe <onboarding@resend.dev>'
+  }
+
+  if (resendApiKey) {
+    try {
+      const resend = new Resend(resendApiKey)
+      const { error } = await resend.emails.send({
+        from: resendFrom,
+        to: toEmail,
+        subject: '🔑 Reset Your Bun Maska Café Password',
+        html: htmlContent,
+      })
+      if (error) return { success: false, error: typeof error === 'object' ? error.message : String(error) }
+      console.log(`📧 Resend email sent successfully to ${toEmail}`)
+      return { success: true }
+    } catch (e) {
+      console.warn('⚠️ Resend email send error:', e.message)
+      return { success: false, error: e.message }
+    }
+  }
+
+  return { success: false, error: 'Password reset email service is not configured.' }
+}
 
 // Route: POST /api/auth/forgot-password - Send password reset link to user's email
 app.post('/api/auth/forgot-password', async (req, res) => {
@@ -230,23 +338,23 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
 
     // Generate secure random reset token
-    const token = crypto.randomBytes(24).toString('hex')
     const expiresAt = Date.now() + 60 * 60 * 1000 // Valid for 1 hour
-
-    resetTokensStore.set(token, { email: normalizedEmail, expiresAt })
+    if (!getResetTokenSecret()) {
+      return res.status(503).json({ error: 'Password reset email service is not configured.' })
+    }
+    const token = createResetToken(normalizedEmail, expiresAt)
 
     const baseUrl = origin || `${req.protocol}://${req.get('host')}`
     const resetLink = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
 
-    console.log(`\n======================================================`)
-    console.log(`📧 PASSWORD RESET EMAIL SENT TO: ${normalizedEmail}`)
-    console.log(`🔗 RESET LINK: ${resetLink}`)
-    console.log(`======================================================\n`)
+    const sendResult = await sendResetEmail(normalizedEmail, resetLink)
+    if (!sendResult.success) {
+      return res.status(503).json({ error: sendResult.error || 'Failed to send verification email. Please check server configuration.' })
+    }
 
     res.json({
       success: true,
-      message: `Password reset verification link has been sent to ${normalizedEmail}!`,
-      resetLink,
+      message: `Password reset verification link has been sent to ${normalizedEmail}! Please check your email.`,
       email: normalizedEmail,
     })
   } catch (error) {
@@ -269,14 +377,8 @@ app.post('/api/auth/reset-password', async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase()
-    const storedTokenData = resetTokensStore.get(token)
-
-    // Fallback: Accept token if it matches stored token or is a valid reset request
-    const isValidToken = storedTokenData && storedTokenData.email === normalizedEmail && storedTokenData.expiresAt > Date.now()
-
-    if (!isValidToken && storedTokenData) {
-      resetTokensStore.delete(token)
-      return res.status(400).json({ error: 'Password reset link has expired. Please request a new one.' })
+    if (!verifyResetToken(token, normalizedEmail)) {
+      return res.status(400).json({ error: 'Password reset link is invalid or has expired. Please request a new one.' })
     }
 
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
@@ -288,10 +390,6 @@ app.post('/api/auth/reset-password', async (req, res) => {
       where: { email: normalizedEmail },
       data: { password: newPassword.trim() },
     })
-
-    if (storedTokenData) {
-      resetTokensStore.delete(token)
-    }
 
     res.json({
       success: true,
