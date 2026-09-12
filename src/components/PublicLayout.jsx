@@ -47,7 +47,7 @@ export default function PublicLayout() {
             element={
               <InfoPage
                 title="Contact"
-                description="Call us at +1 (555) 123-4567 or visit us in downtown."
+                description="Call us at 8085700750 or visit us in downtown."
               />
             }
           />

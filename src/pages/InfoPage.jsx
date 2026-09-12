@@ -16,15 +16,14 @@ export default function InfoPage({ title, description }) {
       {(title === 'Contact' || title === 'About Us' || title === 'About') && (
         <div className="grid gap-6 md:grid-cols-2 pt-4 border-t border-slate-100">
           <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-            <h3 className="text-sm font-bold text-slate-900">📍 Physical Address & Location</h3>
+            <h3 className="text-sm font-bold text-slate-900">📍 Shop Address & Location</h3>
             <p className="text-sm text-slate-600">{store.address}</p>
             <p className="text-sm text-slate-600">{store.city} - {store.zip}</p>
           </div>
 
           <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-            <h3 className="text-sm font-bold text-slate-900">📞 Phone & Email Support</h3>
+            <h3 className="text-sm font-bold text-slate-900">📞 Phone</h3>
             <p className="text-sm text-slate-600">Phone: <a href={`tel:${store.phone}`} className="text-orange-600 font-bold underline">{store.phone}</a></p>
-            <p className="text-sm text-slate-600">Email: <a href={`mailto:${store.email}`} className="text-orange-600 underline">{store.email}</a></p>
           </div>
 
           <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 md:col-span-2">

@@ -51,10 +51,6 @@ export default function CartPage() {
             <span>Delivery</span>
             <span>{isFreeDelivery ? <strong className="text-emerald-400">FREE</strong> : formatPrice(delivery)}</span>
           </div>
-          <div className="flex justify-between">
-            <span>GST / Tax ({Math.round((taxRate || 0.08) * 100)}%)</span>
-            <span>{formatPrice(tax)}</span>
-          </div>
         </div>
         <div className="mt-6 flex items-center justify-between border-y border-slate-700 py-4">
           <span className="text-lg font-bold">Total</span>

@@ -34,7 +34,30 @@ export default function CheckoutPage() {
   const { items, subtotal, delivery, tax, total, clearCart, storeSettings } = useCart()
   const { user } = useSelector((state) => state.auth)
   const [paymentMethod, setPaymentMethod] = useState('razorpay')
-  const [form, setForm] = useState({ name: '', phone: '', address: '', city: '', zip: '', notes: '' })
+  const [form, setForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bun_maska_saved_address')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        return {
+          name: parsed.name || user?.name || '',
+          phone: parsed.phone || user?.phone || '',
+          address: parsed.address || '',
+          city: 'Guna',
+          notes: parsed.notes || '',
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return {
+      name: user?.name || '',
+      phone: user?.phone || '',
+      address: '',
+      city: 'Guna',
+      notes: '',
+    }
+  })
   const [status, setStatus] = useState(null)
   const [processing, setProcessing] = useState(false)
   const [demoPaymentOpen, setDemoPaymentOpen] = useState(false)
@@ -58,7 +81,18 @@ export default function CheckoutPage() {
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
-  const updateField = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value }))
+  const updateField = (event) => {
+    const { name, value } = event.target
+    setForm((current) => {
+      const updated = { ...current, [name]: value, city: 'Guna' }
+      try {
+        localStorage.setItem('bun_maska_saved_address', JSON.stringify(updated))
+      } catch (err) {
+        console.warn('Failed to save address:', err)
+      }
+      return updated
+    })
+  }
 
   // Create Order using API Service
   const completeOrder = async (message, orderId, payment = {}) => {
@@ -236,9 +270,11 @@ export default function CheckoutPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <input required name="name" value={form.name} onChange={updateField} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-orange-400" placeholder="Full name *" />
                   <input required name="phone" value={form.phone} onChange={updateField} type="tel" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-orange-400" placeholder="Phone number *" />
-                  <input required name="address" value={form.address} onChange={updateField} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-orange-400 md:col-span-2" placeholder="Street address *" />
-                  <input required name="city" value={form.city} onChange={updateField} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-orange-400" placeholder="City *" />
-                  <input required name="zip" value={form.zip} onChange={updateField} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-orange-400" placeholder="ZIP code *" />
+                  <input required name="address" value={form.address} onChange={updateField} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none focus:border-orange-400 md:col-span-2" placeholder="Street / House address *" />
+                  <div className="md:col-span-2 flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">
+                    <span>City: <strong className="text-slate-900">Guna</strong></span>
+                    <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2.5 py-1 rounded-full">📍 Service City</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -319,7 +355,6 @@ export default function CheckoutPage() {
               )}
 
               <div className="flex justify-between"><span>Delivery</span><span>{formatPrice(delivery)}</span></div>
-              <div className="flex justify-between"><span>Tax (GST)</span><span>{formatPrice(tax)}</span></div>
             </div>
 
             <div className="mt-4 flex items-center justify-between border-y border-slate-700 py-4">

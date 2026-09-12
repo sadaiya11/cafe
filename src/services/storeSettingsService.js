@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS = {
   email: 'hello@bunmaskacafe.com',
   address: 'Sisodiya Colony, Guna M.P.',
   city: 'Guna, M.P.',
-  zip: '473002',
+  zip: '473001',
   hours: 'Mon - Sun: 11:00 AM - 11:59 PM',
   openHour: 11, // 11:00 AM
   openMinute: 0,
@@ -47,7 +47,7 @@ export const DEFAULT_HERO_SLIDES = [
 /** Check real-time store operating status based on current local time & settings */
 export function isStoreCurrentlyOpen(settings) {
   const currentSettings = settings || getStoreSettings()
-  
+
   // If store owner manually toggled store closed in Admin settings, respect manual toggle!
   if (currentSettings.isStoreOpen === false) {
     return false
@@ -77,7 +77,7 @@ export function getStoreSettings() {
       phone: parsed.phone && parsed.phone !== '+91 98765 43210' ? parsed.phone : '8085700750',
       address: parsed.address && !parsed.address.includes('123 Irani') ? parsed.address : 'Sisodiya Colony, Guna M.P.',
       city: parsed.city || 'Guna, M.P.',
-      zip: parsed.zip || '473002',
+      zip: parsed.zip || '473001',
       hours: parsed.hours || 'Mon - Sun: 11:00 AM - 11:59 PM',
     }
   } catch {

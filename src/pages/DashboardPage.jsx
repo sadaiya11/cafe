@@ -20,7 +20,7 @@ const cafeJsonLd = {
     '@type': 'PostalAddress',
     streetAddress: 'Sisodiya Colony, Guna M.P.',
     addressLocality: 'Guna',
-    postalCode: '473002',
+    postalCode: '473001',
     addressCountry: 'IN',
   },
   openingHoursSpecification: [
