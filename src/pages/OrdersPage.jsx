@@ -171,46 +171,87 @@ export default function OrdersPage() {
 
                   {/* LIVE TRACKER PROGRESS TIMELINE */}
                   {!isCancelled ? (
-                    <div className="pt-2">
-                      <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
-                        <span>Live Kitchen Tracking</span>
-                        <button
-                          onClick={fetchOrders}
-                          className="text-orange-600 hover:text-orange-700 font-extrabold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Refresh live status"
-                        >
-                          <span>🔄</span>
-                          <span>Refresh Status</span>
-                        </button>
+                    <div className="pt-3 border-t border-slate-200/80 space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                          <span>📍 Live Order Tracker</span>
+                        </span>
+
+                        <div className="flex items-center gap-3">
+                          {/* Dynamic Estimated Delivery Timer Banner */}
+                          <span className={`px-3 py-1 rounded-full text-xs font-extrabold shadow-sm ${
+                            currentStepIndex === 4
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : currentStepIndex === 3
+                              ? 'bg-purple-100 text-purple-900 border border-purple-300 animate-pulse'
+                              : currentStepIndex === 2
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse'
+                              : 'bg-orange-100 text-orange-900 border border-orange-300'
+                          }`}>
+                            {currentStepIndex === 4
+                              ? '🎉 Delivered & Enjoyed!'
+                              : currentStepIndex === 3
+                              ? '🛵 Delivery Partner On The Way (~5-10 mins)'
+                              : currentStepIndex === 2
+                              ? '👨‍🍳 Sizzlin\' Fresh in Kitchen (~15-20 mins)'
+                              : '⏱️ Est. Delivery: ~25-30 mins'}
+                          </span>
+
+                          <button
+                            onClick={fetchOrders}
+                            className="text-xs text-orange-600 hover:text-orange-700 font-black flex items-center gap-1 transition-transform active:scale-95 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded-full border border-orange-200"
+                            title="Refresh live status from kitchen"
+                          >
+                            <span>🔄</span>
+                            <span>Refresh</span>
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Progress Line & Steps */}
-                      <div className="grid grid-cols-4 gap-2 relative">
-                        {orderSteps.map((step, idx) => {
-                          const stepNum = idx + 1
-                          const isDone = currentStepIndex >= stepNum
-                          const isCurrent = currentStepIndex === stepNum
+                      {/* Animated Stepper with Connected Progress Line */}
+                      <div className="relative pt-2 pb-1">
+                        {/* Background Gray Line */}
+                        <div className="absolute top-[22px] left-[12%] right-[12%] h-1.5 bg-slate-200 rounded-full -z-0" />
 
-                          return (
-                            <div key={step.statusKey} className="flex flex-col items-center text-center space-y-1.5 z-10">
-                              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all shadow-md ${
-                                isDone 
-                                  ? 'bg-orange-500 text-white ring-4 ring-orange-100' 
-                                  : 'bg-slate-200 text-slate-400'
-                              }`}>
-                                {step.icon}
+                        {/* Active Orange Progress Line */}
+                        <div
+                          className="absolute top-[22px] left-[12%] h-1.5 bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500 rounded-full transition-all duration-500 -z-0"
+                          style={{
+                            width: currentStepIndex === 4 ? '76%' : currentStepIndex === 3 ? '50%' : currentStepIndex === 2 ? '25%' : '0%'
+                          }}
+                        />
+
+                        {/* 4 Steps */}
+                        <div className="grid grid-cols-4 gap-2 relative z-10">
+                          {orderSteps.map((step, idx) => {
+                            const stepNum = idx + 1
+                            const isDone = currentStepIndex >= stepNum
+                            const isCurrent = currentStepIndex === stepNum
+
+                            return (
+                              <div key={step.statusKey} className="flex flex-col items-center text-center space-y-1.5">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-base font-bold transition-all shadow-md ${
+                                  isCurrent
+                                    ? 'bg-orange-500 text-white ring-4 ring-orange-200 scale-110 animate-bounce'
+                                    : isDone
+                                    ? 'bg-emerald-500 text-white ring-2 ring-emerald-100'
+                                    : 'bg-slate-200 text-slate-400 border border-slate-300'
+                                }`}>
+                                  {isDone && !isCurrent ? '✓' : step.icon}
+                                </div>
+                                <span className={`text-[11px] font-extrabold ${isCurrent ? 'text-orange-600' : isDone ? 'text-slate-900' : 'text-slate-400'}`}>
+                                  {step.label}
+                                </span>
                               </div>
-                              <span className={`text-[11px] font-bold ${isCurrent ? 'text-orange-600' : isDone ? 'text-slate-800' : 'text-slate-400'}`}>
-                                {step.label}
-                              </span>
-                            </div>
-                          )
-                        })}
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="p-3 bg-rose-50 text-rose-700 rounded-xl text-xs font-bold">
-                      ❌ This order was cancelled.
+                    <div className="p-3 bg-rose-50 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-2">
+                      <span>❌</span>
+                      <span>This order was cancelled. Please contact support at 8085700750 if you have any questions.</span>
                     </div>
                   )}
 

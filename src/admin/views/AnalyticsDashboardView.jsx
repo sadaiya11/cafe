@@ -1,4 +1,6 @@
 
+import { exportOrdersToCSV } from '../services/csvExportService';
+
 export default function AnalyticsDashboardView({ orders = [] }) {
   // Financial metrics
   const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.totalAmount || o.total || o.amount) || 0), 0);
@@ -36,12 +38,23 @@ export default function AnalyticsDashboardView({ orders = [] }) {
   return (
     <div className="space-y-6">
       
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-white tracking-tight">Sales & Revenue Analytics Dashboard</h2>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Real-time performance metrics, popular dish rankings, and revenue breakdowns.
-        </p>
+      {/* Header with Export Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-tight">Sales & Revenue Analytics Dashboard</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Real-time performance metrics, popular dish rankings, and revenue breakdowns.
+          </p>
+        </div>
+
+        <button
+          onClick={() => exportOrdersToCSV(orders, 'Bun_Maska_Sales_Analytics')}
+          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl text-xs flex items-center gap-2 transition shadow-md shadow-emerald-500/20 cursor-pointer self-start sm:self-auto"
+          title="Download complete sales ledger into Excel CSV"
+        >
+          <span>📥</span>
+          <span>Export Sales Report (.CSV)</span>
+        </button>
       </div>
 
       {/* Summary Metrics Cards */}

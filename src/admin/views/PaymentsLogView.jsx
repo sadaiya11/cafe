@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { exportOrdersToCSV } from '../services/csvExportService';
 
 export default function PaymentsLogView({ orders, onSelectOrder }) {
   const [methodFilter, setMethodFilter] = useState('ALL');
@@ -43,11 +44,22 @@ export default function PaymentsLogView({ orders, onSelectOrder }) {
     <div className="space-y-6">
       
       {/* Top Header */}
-      <div>
-        <h2 className="text-xl font-bold text-white tracking-tight">Payments & Revenue Ledger</h2>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Detailed financial audit log for online Razorpay payments and Cash on Delivery orders.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-tight">Payments & Revenue Ledger</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Detailed financial audit log for online Razorpay payments and Cash on Delivery orders.
+          </p>
+        </div>
+
+        <button
+          onClick={() => exportOrdersToCSV(filteredOrders, `Bun_Maska_Payments_${methodFilter}`)}
+          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl text-xs flex items-center gap-2 transition shadow-md shadow-emerald-500/20 cursor-pointer self-start sm:self-auto"
+          title="Export displayed ledger rows into Excel CSV"
+        >
+          <span>📥</span>
+          <span>Export Payments Ledger (.CSV)</span>
+        </button>
       </div>
 
       {/* Analytics Summary Cards */}
