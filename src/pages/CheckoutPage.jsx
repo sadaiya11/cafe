@@ -6,6 +6,7 @@ import DemoPaymentModal from '../components/DemoPaymentModal'
 import { useCart } from '../context/useCart'
 import { createOrder } from '../services/api'
 import { validateCoupon } from '../services/couponService'
+import { isStoreCurrentlyOpen } from '../services/storeSettingsService'
 
 const formatPrice = (price) => `₹${Number(price || 0).toFixed(2)}`
 
@@ -233,11 +234,16 @@ export default function CheckoutPage() {
     }
   }
 
+  const storeIsOpen = isStoreCurrentlyOpen(storeSettings)
+
   const handleSubmit = (event) => {
     event.preventDefault()
     if (!items.length) return
-    if (storeSettings?.isStoreOpen === false) {
-      setStatus({ type: 'failure', message: `Store Closed: ${storeSettings.storeClosedNotice || 'We are currently not accepting online orders.'}` })
+    if (!storeIsOpen) {
+      setStatus({
+        type: 'failure',
+        message: `Store Closed: ${storeSettings?.storeClosedNotice || 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.'}`,
+      })
       return
     }
     if (paymentMethod === 'cod') {
@@ -274,6 +280,18 @@ export default function CheckoutPage() {
           <p className="text-xs font-bold uppercase tracking-[0.3em] text-orange-500">Secure checkout</p>
           <h1 className="mt-3 text-3xl font-black text-slate-900">Complete your order</h1>
           
+          {!storeIsOpen && (
+            <div className="mt-4 rounded-2xl bg-rose-50 border border-rose-200 p-4 text-rose-800 flex items-start gap-3">
+              <span className="text-xl">🛑</span>
+              <div className="space-y-1">
+                <h4 className="font-extrabold text-sm text-rose-900">Online Ordering Closed</h4>
+                <p className="text-xs font-medium text-rose-700">
+                  {storeSettings?.storeClosedNotice || 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {status?.type === 'failure' && (
             <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-xs font-bold text-rose-700">
               ⚠️ {status.message}

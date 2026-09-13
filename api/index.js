@@ -646,7 +646,7 @@ async function handleChangePassword(body) {
 
 const DEFAULT_SETTINGS = {
   isStoreOpen: true,
-  storeClosedNotice: 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:59 PM.',
+  storeClosedNotice: 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.',
   deliveryFee: 4.99,
   taxRate: 0.08,
   freeDeliveryThreshold: 500,
@@ -656,11 +656,11 @@ const DEFAULT_SETTINGS = {
   address: 'Sisodiya Colony, Guna M.P.',
   city: 'Guna, M.P.',
   zip: '473001',
-  hours: 'Mon - Sun: 11:00 AM - 11:59 PM',
+  hours: 'Mon - Sun: 11:00 AM - 11:30 PM',
   openHour: 11,
   openMinute: 0,
   closeHour: 23,
-  closeMinute: 59,
+  closeMinute: 30,
 }
 
 const DEFAULT_HERO_SLIDES = [

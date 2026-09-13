@@ -6,12 +6,15 @@ import {
   saveHeroSlides,
   fetchStoreSettingsFromServer,
   fetchHeroSlidesFromServer,
+  isStoreCurrentlyOpen,
 } from '../../services/storeSettingsService'
 
 export default function StoreSettingsView() {
   const [settings, setSettings] = useState(getStoreSettings)
   const [slides, setSlides] = useState(getHeroSlides)
   const [savedNotice, setSavedNotice] = useState('')
+
+  const currentlyOpen = isStoreCurrentlyOpen(settings)
 
   useEffect(() => {
     fetchStoreSettingsFromServer().then((s) => setSettings(s))
@@ -137,7 +140,7 @@ export default function StoreSettingsView() {
       <div>
         <h2 className="text-xl font-bold text-white tracking-tight">Store Settings & Banner Manager</h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          Control emergency store open/closed status, delivery & GST tax rates, contact details, and homepage hero banners.
+          Control manual store open/closed toggle, automatic daily operating hours (11:00 AM - 11:30 PM), rates & banners.
         </p>
       </div>
 
@@ -149,14 +152,14 @@ export default function StoreSettingsView() {
 
       <form onSubmit={handleSaveSettings} className="space-y-8">
         
-        {/* 1. Emergency Store Open/Closed Toggle */}
-        <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+        {/* 1. Store Status & Automatic Operating Hours (11:00 AM - 11:30 PM) */}
+        <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-5">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span>🏬 Store Status (Accepting Online Orders)</span>
               </h3>
-              <p className="text-xs text-slate-400">Toggle off during holidays, late night hours, or kitchen overload to pause orders.</p>
+              <p className="text-xs text-slate-400">Master override toggle and automatic operating hours scheduler (11:00 AM to 11:30 PM).</p>
             </div>
 
             <button
@@ -174,26 +177,94 @@ export default function StoreSettingsView() {
             </button>
           </div>
 
-          <div className="flex items-center gap-3 pt-2">
-            <span className={`px-3 py-1 rounded-full text-xs font-extrabold ${
-              settings.isStoreOpen ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <span className={`px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 ${
+              currentlyOpen ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
             }`}>
-              {settings.isStoreOpen ? '🟢 STORE IS OPEN & ACCEPTING ORDERS' : '🛑 STORE IS CLOSED FOR ONLINE ORDERS'}
+              {currentlyOpen
+                ? '🟢 LIVE STATUS: STORE IS OPEN & ACCEPTING ORDERS'
+                : !settings.isStoreOpen
+                ? '🛑 LIVE STATUS: MANUALLY CLOSED BY ADMIN'
+                : '🛑 LIVE STATUS: AUTOMATICALLY CLOSED (OUTSIDE OPERATING HOURS)'}
             </span>
           </div>
 
-          {!settings.isStoreOpen && (
-            <div className="space-y-2 pt-2">
-              <label className="text-xs font-bold text-slate-300 block">Custom Store Closed Notice Message</label>
+          {/* Operating Hours Configuration (11:00 AM - 11:30 PM) */}
+          <div className="pt-3 border-t border-slate-800 space-y-4">
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+              <span>⏰ Automatic Store Operating Schedule</span>
+            </h4>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Opening Time (Starts accepting orders)</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={settings.openHour ?? 11}
+                    onChange={(e) => handleSettingChange('openHour', parseInt(e.target.value))}
+                    className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-bold"
+                  >
+                    {Array.from({ length: 24 }).map((_, h) => (
+                      <option key={h} value={h}>
+                        {h === 0 ? '12 AM (Midnight)' : h < 12 ? `${h} AM` : h === 12 ? '12 PM (Noon)' : `${h - 12} PM`} ({String(h).padStart(2, '0')}:00)
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={settings.openMinute ?? 0}
+                    onChange={(e) => handleSettingChange('openMinute', parseInt(e.target.value))}
+                    className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-bold"
+                  >
+                    <option value={0}>:00 Mins</option>
+                    <option value={15}>:15 Mins</option>
+                    <option value={30}>:30 Mins</option>
+                    <option value={45}>:45 Mins</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Closing Time (Automatically stops orders)</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={settings.closeHour ?? 23}
+                    onChange={(e) => handleSettingChange('closeHour', parseInt(e.target.value))}
+                    className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-bold"
+                  >
+                    {Array.from({ length: 24 }).map((_, h) => (
+                      <option key={h} value={h}>
+                        {h === 0 ? '12 AM (Midnight)' : h < 12 ? `${h} AM` : h === 12 ? '12 PM (Noon)' : `${h - 12} PM`} ({String(h).padStart(2, '0')}:00)
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={settings.closeMinute ?? 30}
+                    onChange={(e) => handleSettingChange('closeMinute', parseInt(e.target.value))}
+                    className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-bold"
+                  >
+                    <option value={0}>:00 Mins</option>
+                    <option value={15}>:15 Mins</option>
+                    <option value={30}>:30 Mins (11:30 PM)</option>
+                    <option value={45}>:45 Mins</option>
+                    <option value={59}>:59 Mins</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <label className="text-xs font-bold text-slate-300 block">Store Closed Notice Message Shown To Customers</label>
               <input
                 type="text"
                 value={settings.storeClosedNotice}
                 onChange={(e) => handleSettingChange('storeClosedNotice', e.target.value)}
                 className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                placeholder="e.g. Cafe is currently closed. We re-open tomorrow at 7 AM!"
+                placeholder="e.g. Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM."
               />
             </div>
-          )}
+          </div>
         </div>
 
         {/* 2. Financial Rates (Delivery Fee, GST Tax %, Free Delivery Threshold) */}

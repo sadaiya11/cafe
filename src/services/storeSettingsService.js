@@ -3,7 +3,7 @@ const HERO_SLIDES_KEY = 'bun_maska_hero_slides'
 
 export const DEFAULT_SETTINGS = {
   isStoreOpen: true,
-  storeClosedNotice: 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:59 PM.',
+  storeClosedNotice: 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.',
   deliveryFee: 4.99,
   taxRate: 0.08, // 8% GST/Tax
   freeDeliveryThreshold: 500,
@@ -13,11 +13,11 @@ export const DEFAULT_SETTINGS = {
   address: 'Sisodiya Colony, Guna M.P.',
   city: 'Guna, M.P.',
   zip: '473001',
-  hours: 'Mon - Sun: 11:00 AM - 11:59 PM',
+  hours: 'Mon - Sun: 11:00 AM - 11:30 PM',
   openHour: 11, // 11:00 AM
   openMinute: 0,
-  closeHour: 23, // 11:59 PM
-  closeMinute: 59,
+  closeHour: 23, // 11:30 PM
+  closeMinute: 30,
 }
 
 export const DEFAULT_HERO_SLIDES = [
@@ -56,7 +56,7 @@ export function isStoreCurrentlyOpen(settings) {
   const openHour = currentSettings.openHour ?? 11
   const openMinute = currentSettings.openMinute ?? 0
   const closeHour = currentSettings.closeHour ?? 23
-  const closeMinute = currentSettings.closeMinute ?? 59
+  const closeMinute = currentSettings.closeMinute ?? 30
 
   const now = new Date()
   const currentMinutes = now.getHours() * 60 + now.getMinutes()
@@ -80,7 +80,12 @@ export function getStoreSettings() {
       address: parsed.address && !parsed.address.includes('123 Irani') ? parsed.address : 'Sisodiya Colony, Guna M.P.',
       city: parsed.city || 'Guna, M.P.',
       zip: parsed.zip || '473001',
-      hours: parsed.hours || 'Mon - Sun: 11:00 AM - 11:59 PM',
+      hours: parsed.hours && !parsed.hours.includes('11:59') ? parsed.hours : 'Mon - Sun: 11:00 AM - 11:30 PM',
+      openHour: parsed.openHour !== undefined ? parsed.openHour : 11,
+      openMinute: parsed.openMinute !== undefined ? parsed.openMinute : 0,
+      closeHour: parsed.closeHour !== undefined ? parsed.closeHour : 23,
+      closeMinute: parsed.closeMinute !== undefined ? parsed.closeMinute : 30,
+      storeClosedNotice: parsed.storeClosedNotice && !parsed.storeClosedNotice.includes('11:59') ? parsed.storeClosedNotice : 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.',
     }
   } catch {
     return DEFAULT_SETTINGS
