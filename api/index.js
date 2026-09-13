@@ -352,7 +352,16 @@ async function registerAuthUser(body) {
     body: {
       success: true,
       message: 'Account registered successfully!',
-      user: { id: user.id, name: user.name, email: user.email, phone: user.phone || '', role: user.role },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        address: user.address || '',
+        city: user.city || '',
+        zip: user.zip || '',
+        role: user.role,
+      },
     },
   }
 }
@@ -373,7 +382,16 @@ async function loginAuthUser(body) {
         body: {
           success: true,
           message: 'Logged in successfully!',
-          user: { id: user.id, name: user.name, email: user.email, phone: user.phone || '', role: user.role },
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone || '',
+            address: user.address || '',
+            city: user.city || '',
+            zip: user.zip || '',
+            role: user.role,
+          },
         },
       }
     }
@@ -383,7 +401,7 @@ async function loginAuthUser(body) {
 }
 
 async function updateUserProfile(body) {
-  const { email, name, phone } = body || {}
+  const { email, name, phone, address, city, zip } = body || {}
   if (!email || !email.trim()) {
     return { status: 400, body: { error: 'User email is required to update profile.' } }
   }
@@ -392,6 +410,9 @@ async function updateUserProfile(body) {
   const updateFields = {}
   if (name !== undefined) updateFields.name = String(name).trim()
   if (phone !== undefined) updateFields.phone = String(phone).trim()
+  if (address !== undefined) updateFields.address = String(address).trim()
+  if (city !== undefined) updateFields.city = String(city).trim()
+  if (zip !== undefined) updateFields.zip = String(zip).trim()
 
   const result = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}`, {
     method: 'PATCH',
@@ -406,7 +427,16 @@ async function updateUserProfile(body) {
     body: {
       success: true,
       message: 'Profile updated successfully!',
-      user: { id: user?.id, name: user?.name, email: user?.email, phone: user?.phone || '', role: user?.role },
+      user: {
+        id: user?.id,
+        name: user?.name,
+        email: user?.email,
+        phone: user?.phone || '',
+        address: user?.address || '',
+        city: user?.city || '',
+        zip: user?.zip || '',
+        role: user?.role,
+      },
     },
   }
 }

@@ -13,6 +13,9 @@ export default function ProfilePage() {
 
   const [name, setName] = useState(user?.name || '')
   const [phone, setPhone] = useState(user?.phone || user?.mobile || '')
+  const [address, setAddress] = useState(user?.address || '')
+  const [city, setCity] = useState(user?.city || '')
+  const [zip, setZip] = useState(user?.zip || '')
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [notice, setNotice] = useState({ type: '', message: '' })
@@ -30,6 +33,9 @@ export default function ProfilePage() {
     if (user) {
       setName(user.name || '')
       setPhone(user.phone || user.mobile || '')
+      setAddress(user.address || '')
+      setCity(user.city || '')
+      setZip(user.zip || '')
     }
   }, [user])
 
@@ -54,15 +60,30 @@ export default function ProfilePage() {
           email: user.email,
           name: name.trim(),
           phone: phone.trim(),
+          address: address.trim(),
+          city: city.trim(),
+          zip: zip.trim(),
         })
       }
 
-      dispatch(updateUser({ name: name.trim(), phone: phone.trim() }))
-      setNotice({ type: 'success', message: 'Profile updated successfully!' })
+      dispatch(updateUser({
+        name: name.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        city: city.trim(),
+        zip: zip.trim(),
+      }))
+      setNotice({ type: 'success', message: 'Profile & delivery details saved to server database!' })
       setIsEditing(false)
     } catch (err) {
-      dispatch(updateUser({ name: name.trim(), phone: phone.trim() }))
-      setNotice({ type: 'success', message: 'Profile updated successfully!' })
+      dispatch(updateUser({
+        name: name.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        city: city.trim(),
+        zip: zip.trim(),
+      }))
+      setNotice({ type: 'success', message: 'Profile & delivery details updated!' })
       setIsEditing(false)
     } finally {
       setLoading(false)
@@ -72,6 +93,9 @@ export default function ProfilePage() {
   const handleCancelEdit = () => {
     setName(user?.name || '')
     setPhone(user?.phone || user?.mobile || '')
+    setAddress(user?.address || '')
+    setCity(user?.city || '')
+    setZip(user?.zip || '')
     setIsEditing(false)
     setNotice({ type: '', message: '' })
   }
@@ -152,7 +176,7 @@ export default function ProfilePage() {
           <SectionHeader
             eyebrow="My Account"
             title="User Profile"
-            subtitle="Manage your personal details, contact information, and security settings."
+            subtitle="Manage your personal details, contact information, and saved delivery address on the server."
           />
           {!isEditing && (
             <button
@@ -160,7 +184,7 @@ export default function ProfilePage() {
               onClick={() => setIsEditing(true)}
               className="inline-flex items-center gap-2 self-start sm:self-auto rounded-full bg-orange-500 px-6 py-3 font-bold text-white shadow-md shadow-orange-200 transition hover:bg-orange-600 text-sm"
             >
-              ✏️ Edit Profile (Name & Mobile)
+              ✏️ Edit Profile & Address
             </button>
           )}
         </div>
@@ -231,6 +255,80 @@ export default function ProfilePage() {
               )}
             </div>
 
+            {/* Street Delivery Address (Editable) */}
+            <div className={`md:col-span-2 rounded-3xl border p-6 transition ${isEditing ? 'border-orange-300 bg-orange-50/30' : 'border-slate-200 bg-slate-50/60'}`}>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-widest text-orange-600">
+                  Default Delivery Address
+                </label>
+                {isEditing ? (
+                  <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-orange-700">Editable</span>
+                ) : (
+                  <span className="text-xs text-slate-400">✏️ Editable</span>
+                )}
+              </div>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="mt-3 w-full rounded-2xl border border-orange-200 bg-white px-4 py-3 text-base font-bold text-slate-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                  placeholder="House / Flat No., Street, Colony Name"
+                />
+              ) : (
+                <p className="mt-2 text-lg font-bold text-slate-900">{user?.address || 'No address saved yet'}</p>
+              )}
+            </div>
+
+            {/* City & Zip Code (Editable) */}
+            <div className={`rounded-3xl border p-6 transition ${isEditing ? 'border-orange-300 bg-orange-50/30' : 'border-slate-200 bg-slate-50/60'}`}>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-widest text-orange-600">
+                  City
+                </label>
+                {isEditing ? (
+                  <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-orange-700">Editable</span>
+                ) : (
+                  <span className="text-xs text-slate-400">✏️ Editable</span>
+                )}
+              </div>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="mt-3 w-full rounded-2xl border border-orange-200 bg-white px-4 py-3 text-base font-bold text-slate-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                  placeholder="e.g. Guna"
+                />
+              ) : (
+                <p className="mt-2 text-lg font-bold text-slate-900">{user?.city || 'Not set'}</p>
+              )}
+            </div>
+
+            <div className={`rounded-3xl border p-6 transition ${isEditing ? 'border-orange-300 bg-orange-50/30' : 'border-slate-200 bg-slate-50/60'}`}>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-widest text-orange-600">
+                  Pincode / Zip Code
+                </label>
+                {isEditing ? (
+                  <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-orange-700">Editable</span>
+                ) : (
+                  <span className="text-xs text-slate-400">✏️ Editable</span>
+                )}
+              </div>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={zip}
+                  onChange={(e) => setZip(e.target.value)}
+                  className="mt-3 w-full rounded-2xl border border-orange-200 bg-white px-4 py-3 text-base font-bold text-slate-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                  placeholder="e.g. 473001"
+                />
+              ) : (
+                <p className="mt-2 text-lg font-bold text-slate-900">{user?.zip || 'Not set'}</p>
+              )}
+            </div>
+
             {/* Email Address (Non-Editable / Locked) */}
             <div className="rounded-3xl border border-slate-200 bg-slate-100/70 p-6 opacity-90">
               <div className="flex items-center justify-between">
@@ -256,6 +354,7 @@ export default function ProfilePage() {
               <p className="mt-1 text-[11px] font-medium text-slate-500">Account status assigned by server system.</p>
             </div>
           </div>
+
 
           {/* Edit Action Buttons */}
           {isEditing && (

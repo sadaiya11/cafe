@@ -30,12 +30,12 @@ export async function loginUser({ email, password }) {
   return data
 }
 
-/** Update user profile (name and phone only) in database */
-export async function updateUserProfile({ email, name, phone }) {
+/** Update user profile (name, phone, address, city, zip) in database */
+export async function updateUserProfile({ email, name, phone, address, city, zip }) {
   const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, name, phone }),
+    body: JSON.stringify({ email, name, phone, address, city, zip }),
   })
 
   const data = await response.json().catch(() => ({}))

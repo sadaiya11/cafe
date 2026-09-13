@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSelector } from 'react-redux'
+
 import SEO from '../components/SEO'
 import DemoPaymentModal from '../components/DemoPaymentModal'
 import { useCart } from '../context/useCart'
@@ -41,9 +42,10 @@ export default function CheckoutPage() {
         const parsed = JSON.parse(saved)
         return {
           name: parsed.name || user?.name || '',
-          phone: parsed.phone || user?.phone || '',
-          address: parsed.address || '',
-          city: 'Guna',
+          phone: parsed.phone || user?.phone || user?.mobile || '',
+          address: parsed.address || user?.address || '',
+          city: parsed.city || user?.city || 'Guna',
+          zip: parsed.zip || user?.zip || '',
           notes: parsed.notes || '',
         }
       }
@@ -52,12 +54,27 @@ export default function CheckoutPage() {
     }
     return {
       name: user?.name || '',
-      phone: user?.phone || '',
-      address: '',
-      city: 'Guna',
+      phone: user?.phone || user?.mobile || '',
+      address: user?.address || '',
+      city: user?.city || 'Guna',
+      zip: user?.zip || '',
       notes: '',
     }
   })
+
+  useEffect(() => {
+    if (user) {
+      setForm((prev) => ({
+        ...prev,
+        name: prev.name || user.name || '',
+        phone: prev.phone || user.phone || user.mobile || '',
+        address: prev.address || user.address || '',
+        city: prev.city || user.city || 'Guna',
+        zip: prev.zip || user.zip || '',
+      }))
+    }
+  }, [user])
+
   const [status, setStatus] = useState(null)
   const [processing, setProcessing] = useState(false)
   const [demoPaymentOpen, setDemoPaymentOpen] = useState(false)

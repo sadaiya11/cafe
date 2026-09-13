@@ -15,6 +15,9 @@ model User {
   email     String   @unique
   password  String?
   phone     String?
+  address   String?
+  city      String?
+  zip       String?
   role      String   @default("CUSTOMER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -22,6 +25,7 @@ model User {
 
   @@map("users")
 }
+
 
 // Food Product Model
 model Product {

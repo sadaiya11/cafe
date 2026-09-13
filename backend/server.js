@@ -136,6 +136,9 @@ app.post('/api/auth/register', async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         phone: newUser.phone || '',
+        address: newUser.address || '',
+        city: newUser.city || '',
+        zip: newUser.zip || '',
         role: newUser.role,
       },
     })
@@ -168,6 +171,9 @@ app.post('/api/auth/login', async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone || '',
+        address: user.address || '',
+        city: user.city || '',
+        zip: user.zip || '',
         role: user.role,
       },
     })
@@ -177,10 +183,10 @@ app.post('/api/auth/login', async (req, res) => {
   }
 })
 
-// Route: PUT /api/auth/profile - Update user profile (Name & Phone only)
+// Route: PUT /api/auth/profile - Update user profile (Name, Phone, Address, City, Zip)
 app.put('/api/auth/profile', async (req, res) => {
   try {
-    const { email, name, phone } = req.body
+    const { email, name, phone, address, city, zip } = req.body
     if (!email || !email.trim()) {
       return res.status(400).json({ error: 'Email address is required to update profile.' })
     }
@@ -196,6 +202,9 @@ app.put('/api/auth/profile', async (req, res) => {
       data: {
         ...(name !== undefined ? { name: String(name).trim() } : {}),
         ...(phone !== undefined ? { phone: String(phone).trim() } : {}),
+        ...(address !== undefined ? { address: String(address).trim() } : {}),
+        ...(city !== undefined ? { city: String(city).trim() } : {}),
+        ...(zip !== undefined ? { zip: String(zip).trim() } : {}),
       },
     })
 
@@ -207,6 +216,9 @@ app.put('/api/auth/profile', async (req, res) => {
         name: updatedUser.name,
         email: updatedUser.email,
         phone: updatedUser.phone || '',
+        address: updatedUser.address || '',
+        city: updatedUser.city || '',
+        zip: updatedUser.zip || '',
         role: updatedUser.role,
       },
     })
@@ -215,6 +227,7 @@ app.put('/api/auth/profile', async (req, res) => {
     res.status(500).json({ error: 'Failed to update profile', details: error.message })
   }
 })
+
 
 const getResetTokenSecret = () => process.env.RESET_TOKEN_SECRET || process.env.SUPABASE_SECRET_KEY
 
