@@ -147,7 +147,22 @@ export async function updateOrderStatus(primaryId, newStatus, altId = null) {
   return true
 }
 
+export async function fetchAdminUsers() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users`)
+    if (response.ok) {
+      return await response.json()
+    }
+  } catch (err) {
+    console.warn('Failed to fetch admin users from API:', err.message)
+  }
+  return []
+}
+
+
 export default {
   fetchAdminOrders,
+  fetchAdminUsers,
   updateOrderStatus,
 }
+

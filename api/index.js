@@ -816,6 +816,25 @@ async function saveSlides(body) {
   return { status: 200, body: { success: true, slides: body } }
 }
 
+async function getAdminUsers() {
+  const result = await supabaseRequest('users?select=*&order=createdAt.desc')
+  if (result.status === 200 && Array.isArray(result.body)) {
+    const sanitized = result.body.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      phone: u.phone || '',
+      address: u.address || '',
+      city: u.city || '',
+      zip: u.zip || '',
+      role: u.role || 'CUSTOMER',
+      createdAt: u.createdAt || u.created_at,
+    }))
+    return { status: 200, body: sanitized }
+  }
+  return result
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
@@ -834,6 +853,9 @@ export default async function handler(req, res) {
       ? await registerAuthUser(req.body || {})
       : route.endsWith('/auth/login') && req.method === 'POST'
         ? await loginAuthUser(req.body || {})
+      : route.endsWith('/admin/users') && req.method === 'GET'
+        ? await getAdminUsers()
+
         : route.endsWith('/auth/forgot-password') && req.method === 'POST'
           ? await handleForgotPassword(req.body || {})
           : route.endsWith('/auth/reset-password') && req.method === 'POST'

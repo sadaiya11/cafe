@@ -9,6 +9,7 @@ import CouponsManagerView from './views/CouponsManagerView';
 import InventoryManagerView from './views/InventoryManagerView';
 import StoreSettingsView from './views/StoreSettingsView';
 import ReviewsManagerView from './views/ReviewsManagerView';
+import CustomersManagerView from './views/CustomersManagerView';
 import OrderDetailModal from './components/OrderDetailModal';
 import OrderNotificationToast from './components/OrderNotificationToast';
 import { fetchAdminOrders, updateOrderStatus } from './services/adminApi';
@@ -182,6 +183,10 @@ export default function App() {
 
           {activeTab === 'settings' && (
             <StoreSettingsView />
+          )}
+
+          {activeTab === 'customers' && (
+            <CustomersManagerView orders={orders} />
           )}
 
           {activeTab === 'reviews' && (

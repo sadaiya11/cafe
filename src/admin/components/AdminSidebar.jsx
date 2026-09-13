@@ -60,6 +60,13 @@ export default function AdminSidebar({
       desc: 'Rates, banners & open/close'
     },
     {
+      id: 'customers',
+      label: 'Customers Directory',
+      icon: '👥',
+      badge: null,
+      desc: 'Names, phones, addresses & orders'
+    },
+    {
       id: 'reviews',
       label: 'Food Reviews',
       icon: '⭐',
@@ -67,6 +74,7 @@ export default function AdminSidebar({
       desc: 'Moderate customer ratings'
     }
   ];
+
 
   return (
     <aside className="w-full md:w-64 bg-[#0f172a] border-r border-slate-800 flex flex-col justify-between shrink-0 p-4 min-h-[calc(100vh-73px)]">

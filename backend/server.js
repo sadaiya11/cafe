@@ -228,6 +228,31 @@ app.put('/api/auth/profile', async (req, res) => {
   }
 })
 
+// Route: GET /api/admin/users - Fetch All Registered Users for Admin Dashboard
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        city: true,
+        zip: true,
+        role: true,
+        createdAt: true,
+      },
+    })
+    res.json(users)
+  } catch (error) {
+    console.error('Error fetching admin users:', error)
+    res.status(500).json({ error: 'Failed to fetch registered users', details: error.message })
+  }
+})
+
+
 
 const getResetTokenSecret = () => process.env.RESET_TOKEN_SECRET || process.env.SUPABASE_SECRET_KEY
 
