@@ -1,6 +1,10 @@
+import { useEffect } from 'react'
+import { useSelector } from 'react-redux'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import TopNavigation from './TopNavigation'
 import ProtectedRoute from './ProtectedRoute'
+import CustomerNotificationToast from './CustomerNotificationToast'
+import { startOrderStatusWatcher } from '../services/orderStatusWatcher'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
 import ForgotPasswordPage from '../pages/ForgotPasswordPage'
@@ -17,9 +21,18 @@ import { useCart } from '../context/useCart'
 
 export default function PublicLayout() {
   const { itemCount } = useCart()
+  const { user } = useSelector((state) => state.auth)
+
+  useEffect(() => {
+    const stopWatcher = startOrderStatusWatcher(user?.email || '')
+    return () => {
+      if (stopWatcher) stopWatcher()
+    }
+  }, [user?.email])
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
+      <CustomerNotificationToast />
       <TopNavigation brand="Bun Maska Café" cartCount={itemCount} />
 
       <main className="mx-auto max-w-7xl px-4 py-8 md:px-8">

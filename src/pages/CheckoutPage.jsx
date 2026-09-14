@@ -7,6 +7,7 @@ import { useCart } from '../context/useCart'
 import { createOrder } from '../services/api'
 import { validateCoupon } from '../services/couponService'
 import { isStoreCurrentlyOpen } from '../services/storeSettingsService'
+import { notifyOrderConfirmed, notifyPaymentSuccess, notifyPaymentFailed } from '../services/customerNotificationService'
 
 const formatPrice = (price) => `₹${Number(price || 0).toFixed(2)}`
 
@@ -18,16 +19,10 @@ const paymentMethods = [
 function loadRazorpayScript() {
   return new Promise((resolve, reject) => {
     if (window.Razorpay) return resolve(true)
-    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
-    if (existing) {
-      existing.addEventListener('load', resolve)
-      return
-    }
     const script = document.createElement('script')
     script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.async = true
-    script.onload = resolve
-    script.onerror = () => reject(new Error('Unable to load Razorpay checkout.'))
+    script.onload = () => resolve(true)
+    script.onerror = () => reject(new Error('Razorpay SDK failed to load.'))
     document.body.appendChild(script)
   })
 }
@@ -85,8 +80,8 @@ export default function CheckoutPage() {
   const [appliedDiscount, setAppliedDiscount] = useState(0)
   const [couponNotice, setCouponNotice] = useState(null)
 
-  const handleApplyCoupon = () => {
-    const res = validateCoupon(couponCode, subtotal)
+  const handleApplyCoupon = async () => {
+    const res = await validateCoupon(couponCode, subtotal)
     setCouponNotice(res)
     if (res.valid) {
       setAppliedDiscount(res.discountAmount)
@@ -158,12 +153,21 @@ export default function CheckoutPage() {
       console.warn('Failed to save order to local storage:', e)
     }
 
-    setStatus({ type: 'success', message, orderId: finalOrderObj.orderId || orderPayload.orderId })
+    const finalId = finalOrderObj.orderId || orderPayload.orderId
+    notifyOrderConfirmed(finalId, finalPayableTotal)
+    if (paymentMethod !== 'cod' || payment.isDemo) {
+      notifyPaymentSuccess(finalId, finalPayableTotal)
+    }
+
+    setStatus({ type: 'success', message, orderId: finalId })
     clearCart()
     return true
   }
 
-  const failPayment = (message) => setStatus({ type: 'failure', message })
+  const failPayment = (message) => {
+    notifyPaymentFailed('BM-Checkout', message)
+    setStatus({ type: 'failure', message })
+  }
 
   const startOnlinePayment = async () => {
     setProcessing(true)

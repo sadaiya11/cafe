@@ -5,11 +5,20 @@ import { useSelector, useDispatch } from 'react-redux'
 import { logout } from '../store/authSlice'
 import { logoutUser } from '../services/api'
 import { getStoreSettings, isStoreCurrentlyOpen } from '../services/storeSettingsService'
+import {
+  getCustomerNotificationsHistory,
+  markAllNotificationsAsRead,
+  getBrowserNotificationPermission,
+  requestBrowserNotificationPermission,
+} from '../services/customerNotificationService'
 
 export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [showLogoModal, setShowLogoModal] = useState(false)
   const [storeSettings, setStoreSettings] = useState(getStoreSettings)
+  const [notifications, setNotifications] = useState(getCustomerNotificationsHistory)
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false)
+  const [notifPermission, setNotifPermission] = useState(getBrowserNotificationPermission)
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const { isAuthenticated, user } = useSelector((state) => state.auth)
@@ -19,6 +28,23 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
     window.addEventListener('bun_store_settings_updated', handleUpdate)
     return () => window.removeEventListener('bun_store_settings_updated', handleUpdate)
   }, [])
+
+  useEffect(() => {
+    const handleNotifUpdate = () => {
+      setNotifications(getCustomerNotificationsHistory())
+    }
+    window.addEventListener('bun_customer_notifications_updated', handleNotifUpdate)
+    return () => window.removeEventListener('bun_customer_notifications_updated', handleNotifUpdate)
+  }, [])
+
+  const unreadCount = notifications.filter((n) => !n.read).length
+
+  const toggleNotifDropdown = () => {
+    if (!showNotifDropdown && unreadCount > 0) {
+      markAllNotificationsAsRead()
+    }
+    setShowNotifDropdown((prev) => !prev)
+  }
 
   const items = [
     { label: 'Home', path: '/dashboard' },
@@ -94,6 +120,80 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Notification Bell Button & Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={toggleNotifDropdown}
+              aria-label="Customer Notifications"
+              className="relative rounded-full border border-slate-200 p-3 text-lg transition hover:border-orange-300 hover:bg-orange-50 cursor-pointer"
+            >
+              <span aria-hidden="true">🔔</span>
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-600 px-1 text-[10px] font-black text-white animate-pulse">
+                  {unreadCount}
+                </span>
+              ) : null}
+            </button>
+
+            {/* Notification Dropdown Panel */}
+            {showNotifDropdown && (
+              <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white border border-slate-200 shadow-2xl p-4 z-[9999] space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-slate-900 text-sm">Notifications</span>
+                    <span className="text-xs font-bold text-slate-400">({notifications.length})</span>
+                  </div>
+                  {notifPermission !== 'granted' && (
+                    <button
+                      onClick={async () => {
+                        const res = await requestBrowserNotificationPermission()
+                        setNotifPermission(res)
+                      }}
+                      className="text-[11px] font-bold text-orange-600 hover:text-orange-700 bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200 cursor-pointer"
+                    >
+                      Enable Push
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                  {notifications.length === 0 ? (
+                    <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                      No notifications yet. Place an order to receive live status updates!
+                    </div>
+                  ) : (
+                    notifications.map((n) => (
+                      <Link
+                        key={n.id}
+                        to={n.url || '/orders'}
+                        onClick={() => setShowNotifDropdown(false)}
+                        className={`block p-3 rounded-xl border transition ${
+                          n.type === 'success'
+                            ? 'bg-emerald-50/50 border-emerald-200 hover:bg-emerald-50'
+                            : n.type === 'error'
+                            ? 'bg-rose-50/50 border-rose-200 hover:bg-rose-50'
+                            : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-base">{n.icon || '🔔'}</span>
+                          <div className="flex-1 min-w-0">
+                            <h5 className="text-xs font-bold text-slate-900 leading-snug">{n.title}</h5>
+                            <p className="text-[11px] text-slate-600 leading-normal mt-0.5">{n.body}</p>
+                            <span className="text-[10px] text-slate-400 mt-1 block font-mono">
+                              {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <Link
             to="/cart"
             aria-label={`Cart with ${cartCount} items`}
