@@ -112,16 +112,21 @@ export default function CheckoutPage() {
     })
   }
 
-  // Create Order using API Service
+  // Create Order using API Service with Server-Side Recalculation
   const completeOrder = async (message, orderId, payment = {}) => {
     const customer = { ...form, email: user?.email || form.email || '' }
-    const orderObj = {
+    const minimalItems = items.map((i) => ({
+      slug: i.slug || i.id,
+      size: i.size || i.sizeLabel || 'standard',
+      quantity: Number(i.quantity) || 1,
+    }))
+
+    const orderPayload = {
       id: orderId || `BM-${Date.now()}`,
       orderId: orderId || `BM-${Date.now()}`,
       customer,
-      amount: finalPayableTotal,
-      currency: 'INR',
-      items,
+      items: minimalItems,
+      couponCode,
       paymentId: payment.paymentId,
       paymentMethod: paymentMethod === 'cod' ? 'COD' : 'RAZORPAY',
       paymentStatus: paymentMethod === 'cod' ? 'PENDING' : 'SUCCESS',
@@ -129,23 +134,31 @@ export default function CheckoutPage() {
       createdAt: new Date().toISOString(),
     }
 
-    try {
-      const stored = localStorage.getItem('bun_maska_user_orders')
-      const existing = stored ? JSON.parse(stored) : []
-      localStorage.setItem('bun_maska_user_orders', JSON.stringify([orderObj, ...existing]))
-    } catch (e) {
-      console.warn('Failed to save order to local storage:', e)
-    }
-
+    let createdResult = null
     if (paymentMethod === 'cod' || payment.isDemo) {
       try {
-        await createOrder(orderObj)
+        createdResult = await createOrder(orderPayload)
       } catch (e) {
         console.warn('Backend database create order warning:', e.message)
       }
     }
 
-    setStatus({ type: 'success', message, orderId: orderObj.orderId })
+    // Use server-verified order if available
+    const finalOrderObj = createdResult?.order || {
+      ...orderPayload,
+      amount: finalPayableTotal,
+      items,
+    }
+
+    try {
+      const stored = localStorage.getItem('bun_maska_user_orders')
+      const existing = stored ? JSON.parse(stored) : []
+      localStorage.setItem('bun_maska_user_orders', JSON.stringify([finalOrderObj, ...existing]))
+    } catch (e) {
+      console.warn('Failed to save order to local storage:', e)
+    }
+
+    setStatus({ type: 'success', message, orderId: finalOrderObj.orderId || orderPayload.orderId })
     clearCart()
     return true
   }
@@ -155,11 +168,22 @@ export default function CheckoutPage() {
   const startOnlinePayment = async () => {
     setProcessing(true)
     const customer = { ...form, email: user?.email || form.email || '' }
+    const minimalItems = items.map((i) => ({
+      slug: i.slug || i.id,
+      size: i.size || i.sizeLabel || 'standard',
+      quantity: Number(i.quantity) || 1,
+    }))
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/payments/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: Math.round(finalPayableTotal * 100), currency: 'INR', items, customer }),
+        body: JSON.stringify({
+          items: minimalItems,
+          couponCode,
+          customer,
+          currency: 'INR',
+        }),
       })
       if (!response.ok) throw new Error('Backend payment endpoint is not running on Vercel.')
 
@@ -182,7 +206,7 @@ export default function CheckoutPage() {
 
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: order.amount,
+        amount: order.amount, // Authoritative server recalculated amount in paise
         currency: order.currency || 'INR',
         name: 'Bun Maska Café',
         description: 'Artisanal Bun Maska & Chai',
@@ -203,8 +227,8 @@ export default function CheckoutPage() {
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
                 customer,
-                items,
-                amount: finalPayableTotal,
+                items: minimalItems,
+                couponCode,
               }),
             })
             const verifyData = await verifyRes.json()

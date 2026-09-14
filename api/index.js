@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
+import { recalculateOrderOnServer } from '../backend/lib/orderCalculator.js'
 import {
   ADMIN_ROLES,
   getBearerToken,
@@ -194,12 +195,30 @@ async function uploadProductImage(slug, dataUrl, contentType = 'image/jpeg') {
 }
 
 async function saveOrder(body) {
-  const { orderId, customer, amount, currency = 'INR', items = [], paymentId, paymentMethod, paymentStatus, status = 'CONFIRMED' } = body
+  const { orderId, customer, items = [], couponCode, paymentId, paymentMethod, paymentStatus, status = 'CONFIRMED' } = body
   if (orderId) {
     const existingResult = await supabaseRequest(`orders?orderId=eq.${encodeURIComponent(orderId)}&select=*`)
     if (existingResult.status < 400 && existingResult.body?.length) {
       return { status: 200, body: { success: true, order: existingResult.body[0], alreadyExists: true } }
     }
+  }
+
+  // 🛡️ Authoritative Server-Side Price & Order Recalculation
+  const productsResult = await getProducts()
+  const dbProducts = (productsResult.status === 200 && Array.isArray(productsResult.body)) ? productsResult.body : null
+  const settingsResult = await getSettings()
+  const dbSettings = settingsResult.body || null
+
+  let calculated
+  try {
+    calculated = await recalculateOrderOnServer({
+      items,
+      couponCode,
+      catalogProducts: dbProducts,
+      storeSettings: dbSettings,
+    })
+  } catch (err) {
+    return { status: 400, body: { error: err.message } }
   }
 
   const orderResult = await supabaseRequest('orders?select=*', {
@@ -208,8 +227,8 @@ async function saveOrder(body) {
     body: JSON.stringify({
       orderId: orderId || `BM-${Date.now()}`,
       customer: customer || {},
-      amount: Number(amount),
-      currency,
+      amount: calculated.finalPayableTotal, // AUTHORITATIVE SERVER RECALCULATED TOTAL
+      currency: 'INR',
       paymentId,
       paymentMethod,
       paymentStatus,
@@ -220,34 +239,61 @@ async function saveOrder(body) {
   if (orderResult.status >= 400) return orderResult
   const order = Array.isArray(orderResult.body) ? orderResult.body[0] : orderResult.body
 
-  if (items.length) {
+  if (calculated.items.length) {
     const itemResult = await supabaseRequest('order_items', {
       method: 'POST',
       headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify(items.map((item) => ({
+      body: JSON.stringify(calculated.items.map((item) => ({
         orderId: order.id,
         title: item.title,
         size: item.sizeLabel || item.size || 'standard',
         quantity: Number(item.quantity),
-        price: Number(item.price),
+        price: Number(item.price), // AUTHORITATIVE UNIT PRICE
       }))),
     })
     if (itemResult.status >= 400) return itemResult
   }
 
-  return { status: 201, body: { success: true, order } }
+  return { status: 201, body: { success: true, order, calculated } }
 }
 
 async function createRazorpayOrder(body) {
-  const { amount, currency = 'INR' } = body
+  const { items = [], couponCode, currency = 'INR' } = body
+
+  // 🛡️ Authoritative Server-Side Price & Order Recalculation
+  const productsResult = await getProducts()
+  const dbProducts = (productsResult.status === 200 && Array.isArray(productsResult.body)) ? productsResult.body : null
+  const settingsResult = await getSettings()
+  const dbSettings = settingsResult.body || null
+
+  let calculated
+  try {
+    calculated = await recalculateOrderOnServer({
+      items,
+      couponCode,
+      catalogProducts: dbProducts,
+      storeSettings: dbSettings,
+    })
+  } catch (err) {
+    return { status: 400, body: { error: err.message } }
+  }
+
   const { keyId, keySecret } = getCredentials()
 
   if (!keyId || !keySecret) {
-    return { status: 503, body: { error: 'Razorpay is not configured on the server.' } }
-  }
-
-  if (!Number.isInteger(amount) || amount < 100) {
-    return { status: 400, body: { error: 'Valid amount in paise (minimum 100 paise) is required.' } }
+    return {
+      status: 200,
+      body: {
+        id: `order_demo_${Date.now()}`,
+        entity: 'order',
+        amount: calculated.amountInPaise,
+        currency,
+        receipt: `receipt_${Date.now()}`,
+        status: 'created',
+        isDemo: true,
+        calculated,
+      },
+    }
   }
 
   const response = await fetch('https://api.razorpay.com/v1/orders', {
@@ -257,7 +303,7 @@ async function createRazorpayOrder(body) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      amount,
+      amount: calculated.amountInPaise, // SERVER RECALCULATED AMOUNT IN PAISE
       currency,
       receipt: `receipt_${Date.now()}`,
       notes: { company: 'Bun Maska Cafe' },
@@ -265,11 +311,11 @@ async function createRazorpayOrder(body) {
   })
 
   const result = await response.json()
-  return { status: response.status, body: result }
+  return { status: response.status, body: { ...result, calculated } }
 }
 
 async function verifyPayment(body) {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer, items, amount } = body
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer, items, couponCode } = body
   const { keySecret } = getCredentials()
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -294,8 +340,7 @@ async function verifyPayment(body) {
     paymentId: razorpay_payment_id,
     customer,
     items,
-    amount,
-    currency: 'INR',
+    couponCode,
     status: 'PAID',
     paymentMethod: 'RAZORPAY',
     paymentStatus: 'SUCCESS',
@@ -312,6 +357,7 @@ async function verifyPayment(body) {
       message: 'Payment verified successfully',
       orderId: razorpay_order_id,
       paymentId: razorpay_payment_id,
+      order: savedOrder.body?.order,
     },
   }
 }

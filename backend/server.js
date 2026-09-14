@@ -6,6 +6,7 @@ import crypto from 'crypto'
 import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
 import prisma from './lib/prisma.js'
+import { recalculateOrderOnServer } from './lib/orderCalculator.js'
 import {
   ADMIN_ROLES,
   getBearerToken,
@@ -662,7 +663,7 @@ app.post('/api/db/slide-images', authenticateRequest, requireAdmin, async (req, 
 // Route: POST /api/db/orders - Save Order into Supabase DB via Prisma
 app.post('/api/db/orders', async (req, res) => {
   try {
-    const { orderId, customer, amount, currency = 'INR', items, paymentId, paymentMethod, paymentStatus, status = 'CONFIRMED' } = req.body
+    const { orderId, customer, items = [], couponCode, paymentId, paymentMethod, paymentStatus, status = 'CONFIRMED' } = req.body
 
     const existingOrder = orderId
       ? await prisma.order.findUnique({ where: { orderId }, include: { items: true } })
@@ -671,29 +672,43 @@ app.post('/api/db/orders', async (req, res) => {
       return res.status(200).json({ success: true, order: existingOrder, alreadyExists: true })
     }
 
+    // 🛡️ Authoritative Server-Side Price & Order Recalculation
+    const dbProducts = await prisma.product.findMany().catch(() => null)
+    let calculated
+    try {
+      calculated = await recalculateOrderOnServer({
+        items,
+        couponCode,
+        catalogProducts: dbProducts,
+        storeSettings: serverSettingsData || null,
+      })
+    } catch (calcErr) {
+      return res.status(400).json({ error: calcErr.message })
+    }
+
     const newOrder = await prisma.order.create({
       data: {
         orderId: orderId || `BM-${Date.now()}`,
         customer: customer || {},
-        amount: Number(amount),
-        currency,
+        amount: calculated.finalPayableTotal, // AUTHORITATIVE RECALCULATED AMOUNT
+        currency: 'INR',
         status,
         paymentId,
         paymentMethod,
         paymentStatus,
         items: {
-          create: (items || []).map((item) => ({
+          create: calculated.items.map((item) => ({
             title: item.title,
             size: item.sizeLabel || item.size || 'standard',
             quantity: Number(item.quantity),
-            price: Number(item.price),
+            price: Number(item.price), // AUTHORITATIVE UNIT PRICE
           })),
         },
       },
       include: { items: true },
     })
 
-    res.status(201).json({ success: true, order: newOrder })
+    res.status(201).json({ success: true, order: newOrder, calculated })
   } catch (error) {
     console.error('Error saving order to Supabase:', error)
     res.status(500).json({ error: 'Failed to save order to database', details: error.message })
@@ -744,30 +759,41 @@ app.patch('/api/db/orders/:orderId/status', authenticateRequest, requireStaffOrA
 
 /**
  * Route: POST /api/payments/create-order
- * Description: Create a new Razorpay order (or mock order if secret key not set)
+ * Description: Create a new Razorpay order (or mock order if secret key not set) with server-calculated amount
  */
 app.post('/api/payments/create-order', async (req, res) => {
   try {
-    const { amount, currency = 'INR' } = req.body
+    const { items = [], couponCode, currency = 'INR' } = req.body
+
+    // 🛡️ Authoritative Server-Side Price & Order Recalculation
+    const dbProducts = await prisma.product.findMany().catch(() => null)
+    let calculated
+    try {
+      calculated = await recalculateOrderOnServer({
+        items,
+        couponCode,
+        catalogProducts: dbProducts,
+        storeSettings: serverSettingsData || null,
+      })
+    } catch (calcErr) {
+      return res.status(400).json({ error: calcErr.message })
+    }
 
     if (!hasRazorpayCredentials || !razorpay) {
       return res.json({
         id: `order_demo_${Date.now()}`,
         entity: 'order',
-        amount: Math.round(amount),
+        amount: calculated.amountInPaise,
         currency,
         receipt: `receipt_${Date.now()}`,
         status: 'created',
         isDemo: true,
+        calculated,
       })
     }
 
-    if (!Number.isInteger(amount) || amount < 100) {
-      return res.status(400).json({ error: 'Valid amount in paise (minimum 100 paise) is required.' })
-    }
-
     const options = {
-      amount: Math.round(amount), // Amount in paise
+      amount: calculated.amountInPaise, // SERVER RECALCULATED AMOUNT IN PAISE
       currency,
       receipt: `receipt_${Date.now()}`,
       notes: {
@@ -776,7 +802,7 @@ app.post('/api/payments/create-order', async (req, res) => {
     }
 
     const order = await razorpay.orders.create(options)
-    res.json(order)
+    res.json({ ...order, calculated })
   } catch (error) {
     console.error('Error creating Razorpay order:', error)
     res.status(500).json({
@@ -792,7 +818,7 @@ app.post('/api/payments/create-order', async (req, res) => {
  */
 app.post('/api/payments/verify', async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer, items, amount } = req.body
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer, items, couponCode } = req.body
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ error: 'Missing required payment verification details' })
@@ -805,21 +831,36 @@ app.post('/api/payments/verify', async (req, res) => {
       .digest('hex')
 
     if (razorpay_signature === expectedSign) {
-      // Save order to Supabase PostgreSQL via Prisma
+      // 🛡️ Recalculate order details on server to save exact prices to Supabase
+      const dbProducts = await prisma.product.findMany().catch(() => null)
+      let calculated
       try {
-        await prisma.order.create({
+        calculated = await recalculateOrderOnServer({
+          items,
+          couponCode,
+          catalogProducts: dbProducts,
+          storeSettings: serverSettingsData || null,
+        })
+      } catch (err) {
+        return res.status(400).json({ error: err.message })
+      }
+
+      // Save order to Supabase PostgreSQL via Prisma
+      let createdOrder = null
+      try {
+        createdOrder = await prisma.order.create({
           data: {
             orderId: razorpay_order_id,
             paymentId: razorpay_payment_id,
             customer: customer || {},
-            amount: Number(amount) || 0,
+            amount: calculated.finalPayableTotal, // AUTHORITATIVE AMOUNT
             status: 'PAID',
             paymentMethod: 'RAZORPAY',
             paymentStatus: 'SUCCESS',
             items: {
-              create: (items || []).map((item) => ({
+              create: calculated.items.map((item) => ({
                 title: item.title,
-                size: item.sizeLabel || 'standard',
+                size: item.sizeLabel || item.size || 'standard',
                 quantity: Number(item.quantity),
                 price: Number(item.price),
               })),
@@ -835,6 +876,8 @@ app.post('/api/payments/verify', async (req, res) => {
         message: 'Payment verified and saved to database successfully',
         orderId: razorpay_order_id,
         paymentId: razorpay_payment_id,
+        order: createdOrder,
+        calculated,
       })
     } else {
       return res.status(400).json({
