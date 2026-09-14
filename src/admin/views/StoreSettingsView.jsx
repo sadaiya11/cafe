@@ -62,7 +62,10 @@ export default function StoreSettingsView() {
         const slideId = isEditing && editingSlide ? editingSlide.id : `slide-${Date.now()}`
         const res = await fetch('/api/db/slide-images', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${JSON.parse(localStorage.getItem('bun_maska_staff_session') || '{}').token || ''}`,
+          },
           body: JSON.stringify({ slideId, image: dataUrl, contentType: file.type || 'image/jpeg' }),
         })
         const data = await res.json()
@@ -151,7 +154,7 @@ export default function StoreSettingsView() {
       )}
 
       <form onSubmit={handleSaveSettings} className="space-y-8">
-        
+
         {/* 1. Store Status & Automatic Operating Hours (11:00 AM - 11:30 PM) */}
         <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-5">
           <div className="flex items-center justify-between">
@@ -165,27 +168,24 @@ export default function StoreSettingsView() {
             <button
               type="button"
               onClick={() => handleSettingChange('isStoreOpen', !settings.isStoreOpen)}
-              className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors ${
-                settings.isStoreOpen ? 'bg-emerald-500' : 'bg-rose-600'
-              }`}
+              className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors ${settings.isStoreOpen ? 'bg-emerald-500' : 'bg-rose-600'
+                }`}
             >
               <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  settings.isStoreOpen ? 'translate-x-9' : 'translate-x-1'
-                }`}
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${settings.isStoreOpen ? 'translate-x-9' : 'translate-x-1'
+                  }`}
               />
             </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
-            <span className={`px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 ${
-              currentlyOpen ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-            }`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 ${currentlyOpen ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+              }`}>
               {currentlyOpen
                 ? '🟢 LIVE STATUS: STORE IS OPEN & ACCEPTING ORDERS'
                 : !settings.isStoreOpen
-                ? '🛑 LIVE STATUS: MANUALLY CLOSED BY ADMIN'
-                : '🛑 LIVE STATUS: AUTOMATICALLY CLOSED (OUTSIDE OPERATING HOURS)'}
+                  ? '🛑 LIVE STATUS: MANUALLY CLOSED BY ADMIN'
+                  : '🛑 LIVE STATUS: AUTOMATICALLY CLOSED (OUTSIDE OPERATING HOURS)'}
             </span>
           </div>
 
@@ -261,7 +261,7 @@ export default function StoreSettingsView() {
                 value={settings.storeClosedNotice}
                 onChange={(e) => handleSettingChange('storeClosedNotice', e.target.value)}
                 className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                placeholder="e.g. Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM."
+                placeholder="e.g. Our cafe daily operating hours: 11:00 AM - 11:30 PM."
               />
             </div>
           </div>
@@ -500,7 +500,7 @@ export default function StoreSettingsView() {
               {/* Upload Image File or Enter Image URL */}
               <div className="md:col-span-2 space-y-2">
                 <label className="text-xs text-slate-300 block">Banner Image * (Upload File or Enter URL)</label>
-                
+
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                   <label className="cursor-pointer px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-amber-300 flex items-center gap-2">
                     <span>📁 Upload Image File</span>

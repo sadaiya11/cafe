@@ -1,3 +1,5 @@
+import { logoutStaff } from '../../services/staffAuthService'
+
 export default function AdminHeader({ 
   soundEnabled, 
   onToggleSound, 
@@ -99,8 +101,7 @@ export default function AdminHeader({
 
           <button
             onClick={() => {
-              localStorage.removeItem('bun_maska_staff_session');
-              window.dispatchEvent(new Event('bun_staff_auth_changed'));
+              logoutStaff();
             }}
             className="flex items-center space-x-1 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-rose-500/20 hover:text-rose-300 text-slate-400 border border-slate-700 transition-all"
             title="Lock Portal"

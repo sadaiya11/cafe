@@ -1,0 +1,742 @@
+BUN MASKA CAFE
+PROJECT REVIEW, GO-LIVE RISKS, FEATURES AND DATA RECOMMENDATIONS
+
+Date: 2026-09-13
+
+======================================================================
+1. CURRENT PROJECT SUMMARY
+======================================================================
+
+The project already has a strong cafe ordering foundation:
+
+- Customer menu and product catalog
+- Product variants and pricing
+- Shopping cart
+- Checkout
+- Cash on delivery
+- Razorpay payment integration and demo payment mode
+- Customer registration and login
+- Customer profile management
+- Password reset flow
+- Customer order history and reorder flow
+- Admin order desk
+- Admin product catalog
+- Admin customer list
+- Admin analytics
+- Admin coupons screen
+- Admin inventory screen
+- Admin reviews screen
+- Admin store settings and hero slides
+- POS screens
+- Receipt support
+- PostgreSQL/Supabase integration
+
+The application is feature-rich, but it is currently closer to a prototype than a production-safe system.
+
+======================================================================
+2. GO-LIVE BLOCKERS
+======================================================================
+
+These items should be fixed before making the application publicly available.
+
+2.1 ADMIN AUTHENTICATION IS NOT SECURE
+
+The admin session is stored in browser localStorage, and API requests do not properly verify authentication or roles.
+
+The admin login also contains hardcoded demo credentials and PINs in:
+
+src/components/AdminAuthGuard.jsx
+
+Potential impact:
+
+- Anyone can call admin APIs directly
+- Products can be changed or deleted
+- Order statuses can be changed
+- Customer records can be read
+- Store settings and banners can be modified
+- Images can be uploaded
+
+Required solution:
+
+- Implement server-side sessions or signed JWT authentication
+- Add role-based access control
+- Protect every admin API route on the server
+- Add session expiration and logout invalidation
+- Remove demo PINs and fallback credentials from production
+
+2.2 PASSWORDS ARE STORED AS PLAIN TEXT
+
+Passwords are saved and compared directly in:
+
+backend/server.js
+
+Required solution:
+
+- Use Argon2id or bcrypt password hashing
+- Never return password fields in API responses
+- Invalidate existing sessions after migration
+- Force existing users to reset passwords if necessary
+- Enforce a stronger password policy
+
+2.3 ORDER PRICES ARE CONTROLLED BY THE BROWSER
+
+The frontend sends product prices, totals, items, discounts and payment amounts to the backend.
+
+A malicious customer could modify the request and pay less than the actual product price.
+
+The browser should send only:
+
+- Product ID
+- Variant ID
+- Quantity
+- Coupon code
+- Delivery address
+
+The server must recalculate:
+
+- Product and variant prices
+- Product availability
+- Quantity limits
+- Tax
+- Delivery fee
+- Coupon discount
+- Final payable amount
+
+2.4 CUSTOMER DATA APIs ARE EXPOSED
+
+Customer orders and admin customer records are available through API routes without adequate ownership and role verification.
+
+Required rules:
+
+- A customer can only view their own orders
+- An admin can view all orders only after server-side authorization
+- Customer search must require an authenticated admin role
+- Never use a customer-supplied email address as proof of identity
+
+2.5 PAYMENT VERIFICATION IS INCOMPLETE
+
+Payment signature verification alone is not sufficient.
+
+The server should also:
+
+- Verify the Razorpay order amount
+- Verify payment status directly with Razorpay
+- Store the gateway order ID and payment ID
+- Reject duplicate payment processing
+- Process Razorpay webhooks
+- Handle failed payments
+- Handle refunds
+- Match payment amount with the server-calculated order total
+
+2.6 BUSINESS DATA IS STORED IN LOCALSTORAGE
+
+Coupons, reviews, inventory, settings, order fallbacks and order status overrides use browser localStorage in different parts of the application.
+
+This causes data loss or inconsistency when:
+
+- Browser storage is cleared
+- Another admin uses another computer
+- Multiple staff members work at the same time
+- The application is opened on another device
+- A user edits local data manually
+
+These features must be stored in the database before launch.
+
+2.7 TWO BACKENDS CAN BEHAVE DIFFERENTLY
+
+There are two backend implementations:
+
+- backend/server.js
+- api/index.js
+
+They have different payment behavior, persistence behavior and fallback logic.
+
+This can cause local development to work while the deployed Vercel version fails.
+
+Recommended solution:
+
+- Use one authoritative backend
+- Or move shared business logic into common modules
+- Test the local and production API behavior with the same integration tests
+
+2.8 TAX AND STORE SETTINGS ARE INCONSISTENT
+
+The admin can configure tax, but the cart currently calculates tax as zero.
+
+Store closed status and delivery rules are mainly checked in the frontend. These rules must also be enforced on the server.
+
+2.9 HARDcoded FALLBACK SECRETS EXIST
+
+The backend contains fallback admin and email credentials.
+
+Required solution:
+
+- Remove all fallback passwords and API keys
+- Rotate any credentials that may have been exposed
+- Store secrets only in deployment secret storage
+- Add secret scanning to CI
+- Never commit .env files
+
+2.10 FILE UPLOADS NEED VALIDATION
+
+Image uploads should not trust only the declared MIME type.
+
+Add:
+
+- File signature validation
+- Maximum dimensions
+- Maximum file size
+- Image re-encoding
+- Authenticated upload endpoints
+- Storage cleanup for replaced images
+
+2.11 LINT AND DEPENDENCY ISSUES
+
+The frontend production build succeeds, but npm run lint currently fails because the ESLint configuration references an unavailable React Hooks plugin export.
+
+The backend dependency audit reports two moderate qs vulnerabilities through Express.
+
+Fix these before setting up CI/CD.
+
+2.12 MISSING TEST COVERAGE
+
+There are no meaningful automated tests for the critical business paths.
+
+At minimum, add tests for:
+
+- Authentication
+- Admin authorization
+- Password hashing
+- Order ownership
+- Price calculation
+- Coupon validation
+- Payment verification
+- Duplicate payment handling
+- Store closure rules
+- Inventory deduction
+
+======================================================================
+3. CUSTOMER FEATURES TO ADD
+======================================================================
+
+3.1 GUEST CHECKOUT
+
+Allow customers to order without creating an account.
+
+Recommended safeguards:
+
+- Verify phone number with OTP
+- Generate a secure tracking token
+- Let guests track orders using order ID and phone number
+- Offer account creation after checkout
+
+3.2 SAVED ADDRESSES
+
+Allow customers to save:
+
+- Home address
+- Work address
+- Custom addresses
+- Delivery instructions
+- Landmark
+
+Validate that the address is inside a supported delivery zone.
+
+3.3 DELIVERY AND PICKUP OPTIONS
+
+Add:
+
+- Delivery
+- Store pickup
+- Dine-in ordering if required
+- Scheduled delivery
+- Scheduled pickup
+- Preparation time estimate
+- Delivery zone and fee validation
+
+3.4 ORDER CANCELLATION AND REFUNDS
+
+Customers should be able to request cancellation depending on order status.
+
+Add:
+
+- Cancellation reason
+- Cancellation cutoff rules
+- Refund request status
+- Refund timeline
+- Automatic notification when refund is completed
+
+3.5 CUSTOMER NOTIFICATIONS
+
+Send notifications for:
+
+- Order confirmation
+- Payment success
+- Payment failure
+- Order accepted
+- Order preparing
+- Order ready
+- Out for delivery
+- Delivered
+- Cancellation
+- Refund completion
+
+Possible channels:
+
+- Email
+- SMS
+- WhatsApp
+- Browser notifications
+
+3.6 LOYALTY PROGRAM
+
+Add:
+
+- Points per order
+- Birthday reward
+- Referral code
+- Redeemable rewards
+- Membership levels
+- Loyalty transaction history
+
+3.7 VERIFIED REVIEWS
+
+Only customers who purchased a product should be allowed to review it.
+
+Add:
+
+- Star rating
+- Text review
+- Optional photo
+- Verified purchase badge
+- Review reporting
+- Admin moderation
+
+3.8 PRODUCT INFORMATION
+
+Add fields for:
+
+- Ingredients
+- Allergens
+- Vegetarian or vegan status
+- Calories
+- Nutrition information
+- Spice level
+- Preparation time
+- Availability schedule
+
+3.9 PERSONALIZED REORDERING
+
+Add:
+
+- Reorder previous order
+- Favorite products
+- Favorite orders
+- Recently ordered products
+- Personalized recommendations
+
+3.10 PRIVACY AND CUSTOMER CONTROL
+
+Add:
+
+- Privacy policy
+- Terms and conditions
+- Refund policy
+- Marketing consent
+- Account deletion
+- Personal data export
+- Cookie or tracking consent if applicable
+
+======================================================================
+4. ADMIN FEATURES TO ADD
+======================================================================
+
+4.1 REAL STAFF ACCOUNTS
+
+Create staff roles such as:
+
+- Owner
+- Manager
+- Cashier
+- Kitchen staff
+- Delivery staff
+- Support staff
+
+Each role should have specific permissions.
+
+4.2 KITCHEN ORDER SCREEN
+
+Add a kitchen display with:
+
+- New orders
+- Confirmed orders
+- Preparing orders
+- Ready orders
+- Delayed orders
+- Preparation timers
+- Sound alerts
+- Priority order marking
+
+4.3 SERVER-AUTHORITATIVE INVENTORY
+
+Add:
+
+- Stock deduction after confirmed orders
+- Ingredient-level inventory
+- Low-stock alerts
+- Reorder thresholds
+- Stock adjustment history
+- Supplier records
+- Purchase records
+- Waste and spoilage records
+
+4.4 COUPON MANAGEMENT
+
+Coupons should support:
+
+- Start date
+- Expiry date
+- Percentage discount
+- Fixed discount
+- Maximum discount amount
+- Minimum order value
+- Usage limit
+- Per-customer usage limit
+- Product restrictions
+- Category restrictions
+- Redemption history
+- Active/inactive status
+
+4.5 PAYMENT AND REFUND RECONCILIATION
+
+Admin should be able to see:
+
+- Razorpay settlement status
+- Payment failures
+- COD collection status
+- Refunds
+- Partial refunds
+- Payment mismatches
+- Webhook events
+
+4.6 AUDIT LOG
+
+Record:
+
+- Who changed an order
+- Who changed a product price
+- Who changed store settings
+- Who deleted a product
+- Who issued a refund
+- Previous value
+- New value
+- Timestamp
+- IP address where appropriate
+
+4.7 DELIVERY MANAGEMENT
+
+Add:
+
+- Delivery zones
+- Delivery fee rules
+- Delivery staff assignment
+- Estimated delivery time
+- Delivery status
+- Proof of delivery
+- Failed delivery reason
+
+4.8 BUSINESS REPORTING
+
+Add reports for:
+
+- Daily sales
+- Gross sales
+- Net sales
+- Tax collected
+- Delivery fees
+- Discounts
+- Refunds
+- Best-selling products
+- Repeat customers
+- Average order value
+- Cancellation rate
+- Refund rate
+- Peak ordering time
+- Payment method breakdown
+- Product profitability
+
+4.9 STORE OPERATIONS
+
+Admin should be able to configure:
+
+- Store opening hours
+- Holiday closures
+- Temporary closure message
+- Preparation time
+- Delivery radius
+- Minimum order value
+- Delivery fee
+- Free delivery threshold
+- Tax rules
+- Order cutoff time
+
+======================================================================
+5. DATA THAT SHOULD BE STORED PERMANENTLY
+======================================================================
+
+5.1 ORDERS
+
+Store immutable pricing and customer snapshots:
+
+- Order number
+- User ID if registered
+- Guest checkout identifier if applicable
+- Customer name snapshot
+- Customer phone snapshot
+- Customer email snapshot
+- Delivery address snapshot
+- Order source: website, POS, phone, WhatsApp
+- Order type: delivery, pickup, dine-in
+- Subtotal
+- Tax amount
+- Tax rate
+- Delivery fee
+- Discount amount
+- Coupon code
+- Final amount
+- Currency
+- Scheduled time
+- Created timestamp
+- Accepted timestamp
+- Prepared timestamp
+- Delivered timestamp
+- Cancelled timestamp
+
+Do not rely only on the customer's current profile. Customers may change their address after placing an order.
+
+5.2 ORDER ITEMS
+
+Store:
+
+- Product ID
+- Variant ID
+- SKU
+- Product title snapshot
+- Variant name snapshot
+- Unit price snapshot
+- Quantity
+- Tax category
+- Discount amount
+- Special instructions
+
+5.3 PAYMENTS
+
+Create a separate payment table containing:
+
+- Order ID
+- Gateway order ID
+- Gateway payment ID
+- Payment method
+- Requested amount
+- Paid amount
+- Currency
+- Payment status
+- Signature verification timestamp
+- Gateway response reference
+- Refund amount
+- Refund status
+- Webhook event ID
+- Webhook received timestamp
+
+5.4 ORDER STATUS HISTORY
+
+Store every status change:
+
+- Order ID
+- Previous status
+- New status
+- Changed by user or staff member
+- Reason
+- Timestamp
+
+5.5 PRODUCTS
+
+Add or preserve:
+
+- SKU
+- Barcode
+- Cost price
+- Selling price
+- Tax category
+- Preparation time
+- Dietary labels
+- Allergen information
+- Availability schedule
+- Product version history
+- Soft-delete status
+
+5.6 INVENTORY
+
+Store:
+
+- Product or ingredient ID
+- SKU
+- Current quantity
+- Reorder level
+- Unit of measurement
+- Cost price
+- Supplier
+- Purchase price
+- Stock movement history
+- Waste reason
+- Adjustment reason
+
+5.7 CUSTOMERS
+
+Store:
+
+- Phone verification status
+- Marketing consent
+- Preferred address
+- Last order date
+- Total order count
+- Total lifetime spend
+- Loyalty points
+- Account status
+- Account deletion or anonymization date
+
+Avoid storing unnecessary sensitive information.
+
+5.8 COUPONS
+
+Store:
+
+- Coupon code
+- Discount type
+- Discount value
+- Start date
+- Expiry date
+- Minimum order value
+- Maximum discount
+- Usage limit
+- Per-customer usage limit
+- Active status
+- Redemption records
+
+5.9 REVIEWS
+
+Store:
+
+- User ID
+- Order ID
+- Product ID
+- Rating
+- Review text
+- Moderation status
+- Moderated by
+- Moderated timestamp
+- Report count
+
+5.10 SECURITY DATA
+
+Store securely:
+
+- Password hashes only
+- Password reset token hashes
+- Token expiry timestamp
+- Token consumed timestamp
+- Active sessions
+- Login attempts
+- Account lockouts
+- Admin audit logs
+
+Use Prisma Decimal rather than Float for all money fields.
+
+======================================================================
+6. DATA SECURITY AND OPERATIONS
+======================================================================
+
+Implement:
+
+- HTTPS everywhere
+- Restricted CORS origins
+- Rate limiting on login, password reset and payment routes
+- Request validation using a schema library
+- Secure HTTP headers
+- Secure cookies if using sessions
+- CSRF protection where applicable
+- Database backups
+- Database restore testing
+- Error monitoring
+- Uptime monitoring
+- Payment failure alerts
+- Admin login alerts
+- Production logging without passwords or payment secrets
+- Separate development, staging and production environments
+
+Never store:
+
+- Plain text passwords
+- Razorpay secret keys in frontend code
+- Full payment card details
+- Unnecessary identity documents
+- Secrets inside source code
+
+======================================================================
+7. RECOMMENDED IMPLEMENTATION ORDER
+======================================================================
+
+PHASE 1: BEFORE LAUNCH
+
+1. Implement real customer and admin authentication.
+2. Add server-side role authorization.
+3. Hash all passwords.
+4. Remove hardcoded credentials and fallback secrets.
+5. Recalculate order totals on the server.
+6. Protect customer and admin data routes.
+7. Add reliable Razorpay verification and webhooks.
+8. Move coupons, inventory, reviews and statuses to the database.
+9. Restrict CORS and add rate limiting.
+10. Fix lint configuration and dependency vulnerabilities.
+11. Add database backups and monitoring.
+12. Add automated tests for critical business paths.
+
+PHASE 2: FIRST RELEASE AFTER LAUNCH
+
+1. Guest checkout.
+2. Customer notifications.
+3. Refund management.
+4. Kitchen display.
+5. Delivery zones and delivery assignment.
+6. Coupon redemption tracking.
+7. Audit logs.
+8. Inventory movement tracking.
+9. Loyalty program.
+
+PHASE 3: LATER IMPROVEMENTS
+
+1. WhatsApp ordering.
+2. Subscription plans.
+3. Advanced product recommendations.
+4. Multi-branch support.
+5. Supplier management.
+6. Demand forecasting.
+7. Advanced profitability analytics.
+
+======================================================================
+8. FINAL GO-LIVE DECISION
+======================================================================
+
+The frontend production build currently succeeds, but the system should not be deployed publicly until these are fixed:
+
+- Authentication and authorization
+- Plain text password storage
+- Client-controlled order pricing
+- Payment verification
+- Customer data exposure
+- LocalStorage business data
+- Hardcoded credentials
+- Backend implementation differences
+- Missing tests and monitoring
+
+After those items are resolved, the project will have a much safer foundation for customer ordering, staff operations and future business reporting.

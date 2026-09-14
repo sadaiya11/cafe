@@ -242,7 +242,7 @@ export default function CheckoutPage() {
     if (!storeIsOpen) {
       setStatus({
         type: 'failure',
-        message: `Store Closed: ${storeSettings?.storeClosedNotice || 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.'}`,
+        message: `Store Closed: ${storeSettings?.storeClosedNotice || 'Our cafe daily operating hours: 11:00 AM - 11:30 PM.'}`,
       })
       return
     }
@@ -279,14 +279,14 @@ export default function CheckoutPage() {
         <section className="rounded-[2rem] bg-white p-6 shadow-sm shadow-slate-200 md:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.3em] text-orange-500">Secure checkout</p>
           <h1 className="mt-3 text-3xl font-black text-slate-900">Complete your order</h1>
-          
+
           {!storeIsOpen && (
             <div className="mt-4 rounded-2xl bg-rose-50 border border-rose-200 p-4 text-rose-800 flex items-start gap-3">
               <span className="text-xl">🛑</span>
               <div className="space-y-1">
-                <h4 className="font-extrabold text-sm text-rose-900">Online Ordering Closed</h4>
+                <h4 className="font-extrabold text-sm text-rose-900">Online Ordering will open at 11 AM</h4>
                 <p className="text-xs font-medium text-rose-700">
-                  {storeSettings?.storeClosedNotice || 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.'}
+                  {storeSettings?.storeClosedNotice || 'Our cafe Daily operating hours: 11:00 AM - 11:30 PM.'}
                 </p>
               </div>
             </div>
@@ -328,7 +328,7 @@ export default function CheckoutPage() {
                 ))}
               </div>
             </div>
-            
+
             <textarea name="notes" value={form.notes} onChange={updateField} rows="3" placeholder="Any instructions for the kitchen or delivery?" className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-orange-400" />
           </div>
         </section>
@@ -381,7 +381,7 @@ export default function CheckoutPage() {
             {/* Calculations Breakdown */}
             <div className="mt-6 space-y-2 border-t border-slate-800 pt-4 text-sm text-slate-300">
               <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
-              
+
               {appliedDiscount > 0 && (
                 <div className="flex justify-between text-emerald-400 font-bold">
                   <span>Coupon Discount</span>
@@ -410,11 +410,11 @@ export default function CheckoutPage() {
       </form>
 
       {demoPaymentOpen ? (
-        <DemoPaymentModal 
-          amount={finalPayableTotal} 
-          onClose={() => setDemoPaymentOpen(false)} 
-          onSuccess={(orderId) => { setDemoPaymentOpen(false); completeOrder('Your online payment was successful!', orderId, { isDemo: true, paymentId: orderId }) }} 
-          onFailure={(message) => { setDemoPaymentOpen(false); failPayment(message) }} 
+        <DemoPaymentModal
+          amount={finalPayableTotal}
+          onClose={() => setDemoPaymentOpen(false)}
+          onSuccess={(orderId) => { setDemoPaymentOpen(false); completeOrder('Your online payment was successful!', orderId, { isDemo: true, paymentId: orderId }) }}
+          onFailure={(message) => { setDemoPaymentOpen(false); failPayment(message) }}
         />
       ) : null}
     </>

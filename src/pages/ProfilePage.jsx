@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { logout, updateUser } from '../store/authSlice'
-import { updateUserProfile, changePassword, forgotPassword } from '../services/api'
+import { updateUserProfile, changePassword, forgotPassword, logoutUser } from '../services/api'
 import { useNavigate } from 'react-router-dom'
 import SectionHeader from '../components/SectionHeader'
 import SEO from '../components/SEO'
@@ -39,7 +39,8 @@ export default function ProfilePage() {
     }
   }, [user])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutUser().catch(() => {})
     dispatch(logout())
     navigate('/dashboard')
   }

@@ -6,6 +6,16 @@ import crypto from 'crypto'
 import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
 import prisma from './lib/prisma.js'
+import {
+  ADMIN_ROLES,
+  getBearerToken,
+  hashPassword,
+  isPasswordHash,
+  sanitizeUser,
+  signAccessToken,
+  verifyAccessToken,
+  verifyPassword,
+} from './lib/auth.js'
 
 dotenv.config({ path: '../.env' })
 dotenv.config({ path: '.env', override: true })
@@ -16,6 +26,37 @@ const PORT = process.env.PORT || 5000
 // Middleware
 app.use(cors())
 app.use(express.json({ limit: '3mb' }))
+
+async function authenticateRequest(req, res, next) {
+  const token = getBearerToken(req)
+  if (!token) return res.status(401).json({ error: 'Authentication required.' })
+
+  try {
+    const claims = verifyAccessToken(token)
+    const user = await prisma.user.findUnique({ where: { id: String(claims.sub) } })
+    if (!user || user.tokenVersion !== Number(claims.tokenVersion || 0)) {
+      return res.status(401).json({ error: 'Session expired. Please sign in again.' })
+    }
+    req.auth = { user, claims }
+    next()
+  } catch (error) {
+    return res.status(401).json({ error: error.message.includes('JWT_SECRET') ? 'Authentication is not configured.' : 'Invalid or expired session.' })
+  }
+}
+
+function requireStaffOrAdmin(req, res, next) {
+  if (!req.auth || !ADMIN_ROLES.has(req.auth.user.role)) {
+    return res.status(403).json({ error: 'Staff or admin access required.' })
+  }
+  next()
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.auth || req.auth.user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Admin access required.' })
+  }
+  next()
+}
 
 // Initialize Razorpay Instance safely
 const hasRazorpayCredentials = Boolean(
@@ -102,12 +143,16 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 4 characters long.' })
     }
 
-    const isRegisteringAdmin = role.toUpperCase() === 'ADMIN'
-    const expectedAdminSecret = process.env.ADMIN_SECRET_KEY || 'BUN_MASKA_ADMIN_2026'
+    const requestedRole = String(role).toUpperCase()
+    if (!['ADMIN', 'STAFF'].includes(requestedRole)) {
+      return res.status(400).json({ error: 'Admin accounts can only use the ADMIN or STAFF role.' })
+    }
+    const isRegisteringAdmin = requestedRole === 'ADMIN'
+    const expectedAdminSecret = process.env.ADMIN_SECRET_KEY
 
     if (isRegisteringAdmin) {
       const { adminSecretKey } = req.body
-      if (!adminSecretKey || String(adminSecretKey).trim() !== expectedAdminSecret) {
+      if (!expectedAdminSecret || !adminSecretKey || String(adminSecretKey).trim() !== expectedAdminSecret) {
         return res.status(403).json({
           error: 'Invalid Admin Security Passcode. Only authorized store managers with the Master Key can register Admin accounts.',
         })
@@ -123,23 +168,17 @@ app.post('/api/auth/register', async (req, res) => {
       data: {
         name: name.trim(),
         email: normalizedEmail,
-        password: password.trim(),
-        role: isRegisteringAdmin ? 'ADMIN' : 'CUSTOMER',
+        password: await hashPassword(password.trim()),
+        role: requestedRole,
       },
     })
 
     res.status(201).json({
       success: true,
       message: 'Account registered successfully!',
+      token: signAccessToken(newUser),
       user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        phone: newUser.phone || '',
-        address: newUser.address || '',
-        city: newUser.city || '',
-        zip: newUser.zip || '',
-        role: newUser.role,
+        ...sanitizeUser(newUser),
       },
     })
   } catch (error) {
@@ -159,23 +198,25 @@ app.post('/api/auth/login', async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase()
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
 
-    if (!user || user.password !== password.trim()) {
+    const validPassword = user && user.password
+      ? (isPasswordHash(user.password) ? await verifyPassword(password.trim(), user.password) : user.password === password.trim())
+      : false
+    if (!user || !validPassword) {
       return res.status(401).json({ error: 'Invalid email or password.' })
     }
+
+    if (!isPasswordHash(user.password)) {
+      await prisma.user.update({ where: { id: user.id }, data: { password: await hashPassword(password.trim()), tokenVersion: { increment: 1 } } })
+      user.tokenVersion += 1
+    }
+
+    const token = signAccessToken(user)
 
     res.json({
       success: true,
       message: 'Logged in successfully!',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone || '',
-        address: user.address || '',
-        city: user.city || '',
-        zip: user.zip || '',
-        role: user.role,
-      },
+      token,
+      user: sanitizeUser(user),
     })
   } catch (error) {
     console.error('Login error:', error)
@@ -183,8 +224,13 @@ app.post('/api/auth/login', async (req, res) => {
   }
 })
 
+app.post('/api/auth/logout', authenticateRequest, async (req, res) => {
+  await prisma.user.update({ where: { id: req.auth.user.id }, data: { tokenVersion: { increment: 1 } } })
+  res.json({ success: true })
+})
+
 // Route: PUT /api/auth/profile - Update user profile (Name, Phone, Address, City, Zip)
-app.put('/api/auth/profile', async (req, res) => {
+app.put('/api/auth/profile', authenticateRequest, async (req, res) => {
   try {
     const { email, name, phone, address, city, zip } = req.body
     if (!email || !email.trim()) {
@@ -192,6 +238,7 @@ app.put('/api/auth/profile', async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase()
+    if (req.auth.user.email !== normalizedEmail) return res.status(403).json({ error: 'You can only update your own profile.' })
     const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } })
     if (!existingUser) {
       return res.status(404).json({ error: 'User account not found.' })
@@ -212,14 +259,7 @@ app.put('/api/auth/profile', async (req, res) => {
       success: true,
       message: 'Profile updated successfully!',
       user: {
-        id: updatedUser.id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        phone: updatedUser.phone || '',
-        address: updatedUser.address || '',
-        city: updatedUser.city || '',
-        zip: updatedUser.zip || '',
-        role: updatedUser.role,
+        ...sanitizeUser(updatedUser),
       },
     })
   } catch (error) {
@@ -229,7 +269,7 @@ app.put('/api/auth/profile', async (req, res) => {
 })
 
 // Route: GET /api/admin/users - Fetch All Registered Users for Admin Dashboard
-app.get('/api/admin/users', async (req, res) => {
+app.get('/api/admin/users', authenticateRequest, requireAdmin, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
@@ -426,7 +466,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
     await prisma.user.update({
       where: { email: normalizedEmail },
-      data: { password: newPassword.trim() },
+      data: { password: await hashPassword(newPassword.trim()), tokenVersion: { increment: 1 } },
     })
 
     res.json({
@@ -440,7 +480,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 })
 
 // Route: PUT /api/auth/change-password - Change user password directly from Profile page
-app.put('/api/auth/change-password', async (req, res) => {
+app.put('/api/auth/change-password', authenticateRequest, async (req, res) => {
   try {
     const { email, currentPassword, newPassword } = req.body
 
@@ -449,13 +489,17 @@ app.put('/api/auth/change-password', async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase()
+    if (req.auth.user.email !== normalizedEmail) return res.status(403).json({ error: 'You can only change your own password.' })
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
 
     if (!user) {
       return res.status(404).json({ error: 'User account not found.' })
     }
 
-    if (user.password && user.password !== currentPassword.trim()) {
+    const currentPasswordValid = user.password && isPasswordHash(user.password)
+      ? await verifyPassword(currentPassword.trim(), user.password)
+      : user.password === currentPassword.trim()
+    if (!currentPasswordValid) {
       return res.status(400).json({ error: 'Incorrect current password. Please try again or use email reset.' })
     }
 
@@ -465,7 +509,7 @@ app.put('/api/auth/change-password', async (req, res) => {
 
     await prisma.user.update({
       where: { email: normalizedEmail },
-      data: { password: newPassword.trim() },
+      data: { password: await hashPassword(newPassword.trim()), tokenVersion: { increment: 1 } },
     })
 
     res.json({
@@ -491,7 +535,7 @@ app.get('/api/db/products', async (req, res) => {
 
 
 // Route: PUT /api/db/products/:slug - Update the fields shown to customers.
-app.put('/api/db/products/:slug', async (req, res) => {
+app.put('/api/db/products/:slug', authenticateRequest, requireAdmin, async (req, res) => {
   try {
     const slug = req.params.slug
     const { title, category, tag, description, price, image, variants, inStock } = req.body
@@ -537,7 +581,7 @@ app.put('/api/db/products/:slug', async (req, res) => {
 })
 
 // Route: DELETE /api/db/products/:slug - Delete Product from Supabase DB via Prisma
-app.delete('/api/db/products/:slug', async (req, res) => {
+app.delete('/api/db/products/:slug', authenticateRequest, requireAdmin, async (req, res) => {
   try {
     const slug = req.params.slug
     await prisma.product.delete({ where: { slug } })
@@ -548,7 +592,7 @@ app.delete('/api/db/products/:slug', async (req, res) => {
 })
 
 // Route: POST /api/db/product-images - Upload a customer-visible product image.
-app.post('/api/db/product-images', async (req, res) => {
+app.post('/api/db/product-images', authenticateRequest, requireAdmin, async (req, res) => {
   try {
     const { slug, image, contentType } = req.body
     const imageUrl = await uploadProductImage(slug, image, contentType)
@@ -585,12 +629,12 @@ async function uploadSlideImage(slideId, dataUrl, contentType = 'image/jpeg') {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: SLIDE_IMAGE_BUCKET, name: SLIDE_IMAGE_BUCKET, public: true }),
-  }).catch(() => {})
+  }).catch(() => { })
   await fetch(`${process.env.SUPABASE_URL}/storage/v1/bucket/${SLIDE_IMAGE_BUCKET}`, {
     method: 'PUT',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ public: true }),
-  }).catch(() => {})
+  }).catch(() => { })
 
 
   const response = await fetch(`${process.env.SUPABASE_URL}/storage/v1/object/${SLIDE_IMAGE_BUCKET}/${objectPath}`, {
@@ -604,7 +648,7 @@ async function uploadSlideImage(slideId, dataUrl, contentType = 'image/jpeg') {
 }
 
 // Route: POST /api/db/slide-images - Upload a slide banner image to hero-banner-slider bucket.
-app.post('/api/db/slide-images', async (req, res) => {
+app.post('/api/db/slide-images', authenticateRequest, requireAdmin, async (req, res) => {
   try {
     const { slideId, image, contentType } = req.body
     const imageUrl = await uploadSlideImage(slideId, image, contentType)
@@ -657,7 +701,7 @@ app.post('/api/db/orders', async (req, res) => {
 })
 
 // Route: GET /api/db/orders - Fetch Orders from Supabase DB via Prisma
-app.get('/api/db/orders', async (req, res) => {
+app.get('/api/db/orders', authenticateRequest, async (req, res) => {
   try {
     const { email } = req.query
     const orders = await prisma.order.findMany({
@@ -665,9 +709,12 @@ app.get('/api/db/orders', async (req, res) => {
       orderBy: { createdAt: 'desc' },
     })
 
-    const result = email
-      ? orders.filter((o) => o.customer && typeof o.customer === 'object' && o.customer.email === email)
-      : orders
+    if (!ADMIN_ROLES.has(req.auth.user.role) && email !== req.auth.user.email) {
+      return res.status(403).json({ error: 'You can only view your own orders.' })
+    }
+    const result = ADMIN_ROLES.has(req.auth.user.role)
+      ? (email ? orders.filter((o) => o.customer && typeof o.customer === 'object' && o.customer.email === email) : orders)
+      : orders.filter((o) => o.customer && typeof o.customer === 'object' && o.customer.email === req.auth.user.email)
 
     res.json(result)
   } catch (error) {
@@ -676,7 +723,7 @@ app.get('/api/db/orders', async (req, res) => {
   }
 })
 
-app.patch('/api/db/orders/:orderId/status', async (req, res) => {
+app.patch('/api/db/orders/:orderId/status', authenticateRequest, requireStaffOrAdmin, async (req, res) => {
   try {
     const allowedStatuses = ['PENDING', 'CONFIRMED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'PAID']
     const { status } = req.body
@@ -806,7 +853,7 @@ app.post('/api/payments/verify', async (req, res) => {
 
 const DEFAULT_SETTINGS = {
   isStoreOpen: true,
-  storeClosedNotice: 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.',
+  storeClosedNotice: 'Our cafe daily operating hours: 11:00 AM - 11:30 PM.',
   deliveryFee: 4.99,
   taxRate: 0.08,
   freeDeliveryThreshold: 500,
@@ -855,7 +902,7 @@ app.get('/api/db/settings', (req, res) => {
   res.json(serverSettingsData || DEFAULT_SETTINGS)
 })
 
-app.put('/api/db/settings', (req, res) => {
+app.put('/api/db/settings', authenticateRequest, requireAdmin, (req, res) => {
   if (!req.body || typeof req.body !== 'object') {
     return res.status(400).json({ error: 'Invalid settings body.' })
   }
@@ -863,7 +910,7 @@ app.put('/api/db/settings', (req, res) => {
   res.json({ success: true, settings: serverSettingsData })
 })
 
-app.post('/api/db/settings', (req, res) => {
+app.post('/api/db/settings', authenticateRequest, requireAdmin, (req, res) => {
   if (!req.body || typeof req.body !== 'object') {
     return res.status(400).json({ error: 'Invalid settings body.' })
   }
@@ -876,7 +923,7 @@ app.get('/api/db/slides', (req, res) => {
 })
 
 
-app.put('/api/db/slides', (req, res) => {
+app.put('/api/db/slides', authenticateRequest, requireAdmin, (req, res) => {
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ error: 'Hero slides body must be an array.' })
   }
@@ -884,7 +931,7 @@ app.put('/api/db/slides', (req, res) => {
   res.json({ success: true, slides: serverSlidesData })
 })
 
-app.post('/api/db/slides', (req, res) => {
+app.post('/api/db/slides', authenticateRequest, requireAdmin, (req, res) => {
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ error: 'Hero slides body must be an array.' })
   }

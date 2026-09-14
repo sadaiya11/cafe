@@ -3,6 +3,15 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 const LOCAL_STORAGE_KEY = 'bun_maska_user_orders'
 const STATUS_OVERRIDES_KEY = 'bun_maska_status_overrides'
 
+function authHeaders() {
+  try {
+    const session = JSON.parse(localStorage.getItem('bun_maska_staff_session') || 'null')
+    return session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+  } catch {
+    return {}
+  }
+}
+
 function getStatusOverrides() {
   try {
     const data = localStorage.getItem(STATUS_OVERRIDES_KEY)
@@ -88,7 +97,7 @@ export async function fetchAdminOrders() {
   let combined = []
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/db/orders`)
+    const response = await fetch(`${API_BASE_URL}/api/db/orders`, { headers: authHeaders() })
     if (response.ok) {
       const apiOrders = await response.json()
       const apiOrderIds = new Set((apiOrders || []).map((o) => o.orderId || o.id))
@@ -135,7 +144,7 @@ export async function updateOrderStatus(primaryId, newStatus, altId = null) {
     try {
       const response = await fetch(`${API_BASE_URL}/api/db/orders/${encodeURIComponent(id)}/status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ status: newStatus }),
       })
       if (response.ok) break
@@ -149,7 +158,7 @@ export async function updateOrderStatus(primaryId, newStatus, altId = null) {
 
 export async function fetchAdminUsers() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/admin/users`)
+    const response = await fetch(`${API_BASE_URL}/api/admin/users`, { headers: authHeaders() })
     if (response.ok) {
       return await response.json()
     }

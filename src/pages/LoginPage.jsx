@@ -29,7 +29,7 @@ export default function LoginPage() {
 
     try {
       const response = await loginUser({ email: email.trim(), password: password.trim() })
-      const authenticatedUser = response.user || { email: email.trim(), name: email.split('@')[0] }
+      const authenticatedUser = { ...(response.user || { email: email.trim(), name: email.split('@')[0] }), token: response.token }
       
       dispatch(login(authenticatedUser))
       navigate(from, { replace: true })

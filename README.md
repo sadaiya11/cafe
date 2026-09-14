@@ -28,3 +28,19 @@ The demo does not charge money. For a real Razorpay test payment, configure `VIT
 Never expose `RAZORPAY_KEY_SECRET` in frontend code. Keep the cart and customer payload validation on the server before creating an order.
 
 Copy `.env.example` to `.env` for local configuration.
+
+## Authentication setup
+
+The API uses bcrypt password hashes and signed JWT sessions. Configure these server-only variables before starting the backend:
+
+- `JWT_SECRET`: at least 32 random characters
+- `JWT_EXPIRES_IN`: session lifetime, such as `30m`
+- `ADMIN_SECRET_KEY`: separate secret used only when provisioning the first admin account
+
+Apply the session invalidation migration before deployment:
+
+```bash
+npm --prefix backend run prisma:migrate:deploy
+```
+
+Admin panel accounts must have the `ADMIN` or `STAFF` role. Customer accounts cannot access admin APIs. Never use demo PINs or fallback credentials in production.

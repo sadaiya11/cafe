@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { logout } from '../store/authSlice'
+import { logoutUser } from '../services/api'
 import { getStoreSettings, isStoreCurrentlyOpen } from '../services/storeSettingsService'
 
 export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0 }) {
@@ -33,7 +34,8 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
     { label: 'Contact', path: '/contact' },
   ]
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutUser().catch(() => {})
     dispatch(logout())
     setMenuOpen(false)
     navigate('/dashboard')

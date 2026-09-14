@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { isStaffAuthenticated, loginStaff } from '../services/staffAuthService'
 import { registerUser, loginUser } from '../services/api'
 
 export default function AdminAuthGuard({ children, target = 'admin' }) {
   const [authenticated, setAuthenticated] = useState(isStaffAuthenticated)
-  const [authMode, setAuthMode] = useState('password') // 'password', 'pin', 'register'
+  const [authMode, setAuthMode] = useState('password')
   
   // Login fields
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [pin, setPin] = useState('')
 
   // Admin Registration fields (Email ID, User Name, Password, and Master Key)
   const [regEmail, setRegEmail] = useState('')
   const [regName, setRegName] = useState('')
   const [regPassword, setRegPassword] = useState('')
+  const [regRole, setRegRole] = useState('STAFF')
   const [regAdminSecret, setRegAdminSecret] = useState('')
 
   const [loading, setLoading] = useState(false)
@@ -34,17 +35,6 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
     setErrorNotice('')
     setSuccessNotice('')
 
-    if (authMode === 'pin') {
-      if (pin === '1234' || pin === '0000' || pin === '9999') {
-        const sessionData = { authenticated: true, role: 'STAFF', user: 'Cashier Staff', loginTime: new Date().toISOString() }
-        loginStaff(sessionData)
-        setAuthenticated(true)
-        return
-      }
-      setErrorNotice('Invalid PIN code. Try PIN: 1234')
-      return
-    }
-
     const u = username.trim()
     const p = password.trim()
 
@@ -58,25 +48,22 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
     try {
       // First try real database authentication
       const response = await loginUser({ email: u, password: p })
-      const loggedUser = response.user || { name: u, email: u, role: 'ADMIN' }
+      const loggedUser = response.user || { name: u, email: u, role: 'CUSTOMER' }
+      if (!['ADMIN', 'STAFF'].includes(loggedUser.role) || !response.token) {
+        throw new Error('This account does not have staff or admin access.')
+      }
       
       const sessionData = {
         authenticated: true,
         role: loggedUser.role || 'ADMIN',
         user: loggedUser.name || u,
         email: loggedUser.email || u,
+        token: response.token,
         loginTime: new Date().toISOString(),
       }
       loginStaff(sessionData)
       setAuthenticated(true)
     } catch (err) {
-      // Fallback for default demo admin credentials
-      if ((u.toLowerCase() === 'admin' || u.toLowerCase() === 'admin@bunmaskacafe.com' || u.toLowerCase() === 'staff') && (p === 'admin' || p === 'admin123' || p === '123456')) {
-        const sessionData = { authenticated: true, role: u.toLowerCase().includes('admin') ? 'ADMIN' : 'STAFF', user: u, loginTime: new Date().toISOString() }
-        loginStaff(sessionData)
-        setAuthenticated(true)
-        return
-      }
       setErrorNotice(err.message || 'Invalid admin email or password.')
     } finally {
       setLoading(false)
@@ -111,7 +98,7 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
         email: regEmail.trim(),
         name: regName.trim(),
         password: regPassword.trim(),
-        role: 'ADMIN',
+        role: regRole,
         adminSecretKey: regAdminSecret.trim(),
       })
 
@@ -119,9 +106,10 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
 
       const sessionData = {
         authenticated: true,
-        role: 'ADMIN',
+        role: newAdmin.role || regRole,
         user: newAdmin.name,
         email: newAdmin.email,
+        token: response.token,
         loginTime: new Date().toISOString(),
       }
 
@@ -132,34 +120,9 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
         setAuthenticated(true)
       }, 1000)
     } catch (err) {
-      // Fallback if backend API is offline - save session so admin is created
-      const sessionData = {
-        authenticated: true,
-        role: 'ADMIN',
-        user: regName.trim(),
-        email: regEmail.trim(),
-        loginTime: new Date().toISOString(),
-      }
-      setSuccessNotice('Admin registered successfully! Unlocking...')
-      setTimeout(() => {
-        loginStaff(sessionData)
-        setAuthenticated(true)
-      }, 1000)
+      setErrorNotice(err.message || 'Unable to register admin account.')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fillQuickDemo = (type) => {
-    if (type === 'admin') {
-      setUsername('admin@bunmaskacafe.com')
-      setPassword('admin123')
-      setAuthMode('password')
-      setErrorNotice('')
-    } else if (type === 'pin') {
-      setPin('1234')
-      setAuthMode('pin')
-      setErrorNotice('')
     }
   }
 
@@ -207,13 +170,6 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
           >
             ✨ Register Admin
           </button>
-          <button
-            type="button"
-            onClick={() => { setAuthMode('pin'); setErrorNotice(''); setSuccessNotice(''); }}
-            className={`flex-1 py-2 rounded-lg transition ${authMode === 'pin' ? 'bg-amber-500 text-slate-950 font-black shadow' : 'text-slate-400 hover:text-white'}`}
-          >
-            🔢 PIN
-          </button>
         </div>
 
         {/* Error Notice */}
@@ -259,6 +215,18 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
             </div>
 
             <div>
+              <label className="text-xs font-bold text-slate-300 block mb-1">Role *</label>
+              <select
+                value={regRole}
+                onChange={(e) => setRegRole(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+              >
+                <option value="STAFF">Staff</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+
+            <div>
               <label className="text-xs font-bold text-slate-300 block mb-1">Password *</label>
               <input
                 type="password"
@@ -284,7 +252,7 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
                 className="w-full px-4 py-3 bg-slate-950 border border-amber-500/50 rounded-xl text-xs text-amber-300 placeholder-slate-600 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 font-mono"
               />
               <p className="text-[10px] text-slate-500 mt-1">
-                🔑 Requires Master Key to prevent unauthorized admin creation. (Default: <code className="text-amber-400">BUN_MASKA_ADMIN_2026</code>)
+                🔑 Requires the server-configured admin provisioning key.
               </p>
             </div>
 
@@ -297,10 +265,9 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
             </button>
           </form>
         ) : (
-          /* Login Form (Email ID & Password or PIN) */
+          /* Login Form */
           <form onSubmit={handleLogin} className="mt-6 space-y-4 relative z-10">
-            {authMode === 'password' ? (
-              <>
+            <>
                 <div>
                   <label className="text-xs font-bold text-slate-300 block mb-1">Email ID / Username *</label>
                   <input
@@ -314,7 +281,12 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">Password *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-300">Password *</label>
+                    <Link to="/forgot-password" className="text-[10px] font-bold text-amber-400 hover:underline">
+                      Forgot password?
+                    </Link>
+                  </div>
                   <input
                     type="password"
                     required
@@ -324,21 +296,7 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
                     className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
                   />
                 </div>
-              </>
-            ) : (
-              <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1 text-center">Enter 4-Digit Staff PIN</label>
-                <input
-                  type="password"
-                  maxLength={4}
-                  required
-                  placeholder="1234"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-center text-xl font-mono tracking-[0.5em] text-amber-400 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-            )}
+            </>
 
             <button
               type="submit"
@@ -376,22 +334,6 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
             </p>
           )}
 
-          <div className="flex gap-2 justify-center pt-1">
-            <button
-              type="button"
-              onClick={() => fillQuickDemo('admin')}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-bold text-amber-300 transition"
-            >
-              Demo Admin (admin123)
-            </button>
-            <button
-              type="button"
-              onClick={() => fillQuickDemo('pin')}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-bold text-amber-300 transition"
-            >
-              Demo PIN (1234)
-            </button>
-          </div>
         </div>
 
       </div>

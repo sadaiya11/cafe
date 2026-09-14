@@ -3,7 +3,7 @@ const HERO_SLIDES_KEY = 'bun_maska_hero_slides'
 
 export const DEFAULT_SETTINGS = {
   isStoreOpen: true,
-  storeClosedNotice: 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.',
+  storeClosedNotice: 'Our cafe daily operating hours: 11:00 AM - 11:30 PM.',
   deliveryFee: 4.99,
   taxRate: 0.08, // 8% GST/Tax
   freeDeliveryThreshold: 500,
@@ -68,6 +68,15 @@ export function isStoreCurrentlyOpen(settings) {
 
 const API_BASE = '/api/db'
 
+function staffHeaders() {
+  try {
+    const session = JSON.parse(localStorage.getItem('bun_maska_staff_session') || 'null')
+    return session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+  } catch {
+    return {}
+  }
+}
+
 export function getStoreSettings() {
   try {
     const data = localStorage.getItem(STORE_SETTINGS_KEY)
@@ -85,7 +94,7 @@ export function getStoreSettings() {
       openMinute: parsed.openMinute !== undefined ? parsed.openMinute : 0,
       closeHour: parsed.closeHour !== undefined ? parsed.closeHour : 23,
       closeMinute: parsed.closeMinute !== undefined ? parsed.closeMinute : 30,
-      storeClosedNotice: parsed.storeClosedNotice && !parsed.storeClosedNotice.includes('11:59') ? parsed.storeClosedNotice : 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.',
+      storeClosedNotice: parsed.storeClosedNotice && !parsed.storeClosedNotice.includes('11:59') ? parsed.storeClosedNotice : 'Our cafe daily operating hours: 11:00 AM - 11:30 PM.',
     }
   } catch {
     return DEFAULT_SETTINGS
@@ -119,7 +128,7 @@ export function saveStoreSettings(settings) {
 
     fetch(`${API_BASE}/settings`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...staffHeaders() },
       body: JSON.stringify(updated),
     }).catch((err) => console.warn('Server settings sync notice:', err))
 
@@ -163,7 +172,7 @@ export function saveHeroSlides(slides) {
 
     fetch(`${API_BASE}/slides`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...staffHeaders() },
       body: JSON.stringify(slides),
     }).catch((err) => console.warn('Server slides sync notice:', err))
 

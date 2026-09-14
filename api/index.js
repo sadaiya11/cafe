@@ -1,6 +1,16 @@
 import crypto from 'node:crypto'
 import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
+import {
+  ADMIN_ROLES,
+  getBearerToken,
+  hashPassword,
+  isPasswordHash,
+  sanitizeUser,
+  signAccessToken,
+  verifyAccessToken,
+  verifyPassword,
+} from '../backend/lib/auth.js'
 
 const json = (res, status, body) => {
   res.status(status).json(body)
@@ -35,7 +45,27 @@ async function supabaseRequest(path, options = {}) {
   return { status: response.status, body: text ? JSON.parse(text) : null }
 }
 
-async function getOrders(query) {
+async function authenticateApi(req) {
+  const token = getBearerToken(req)
+  if (!token) return { status: 401, body: { error: 'Authentication required.' } }
+  try {
+    const claims = verifyAccessToken(token)
+    const result = await supabaseRequest(`users?id=eq.${encodeURIComponent(String(claims.sub))}&select=*`)
+    const user = Array.isArray(result.body) ? result.body[0] : null
+    if (!user || Number(user.tokenVersion || 0) !== Number(claims.tokenVersion || 0)) {
+      return { status: 401, body: { error: 'Session expired. Please sign in again.' } }
+    }
+    return { user }
+  } catch (error) {
+    return { status: 401, body: { error: error.message.includes('JWT_SECRET') ? 'Authentication is not configured.' : 'Invalid or expired session.' } }
+  }
+}
+
+function hasStaffRole(user) {
+  return user && ADMIN_ROLES.has(user.role)
+}
+
+async function getOrders(query, authUser) {
   const params = new URLSearchParams({ select: '*,order_items(*)', order: 'createdAt.desc' })
   const email = query.get('email')
   if (email) params.set('customer->>email', `eq.${email}`)
@@ -54,6 +84,9 @@ async function getOrders(query) {
       ...order,
       items: order.items || order.order_items || []
     }))
+    if (!hasStaffRole(authUser)) {
+      return { status: 200, body: mapped.filter((order) => order.customer?.email === authUser.email) }
+    }
     return { status: 200, body: mapped }
   }
 
@@ -316,11 +349,15 @@ async function registerAuthUser(body) {
     return { status: 400, body: { error: 'Password must be at least 4 characters long.' } }
   }
 
-  const isRegisteringAdmin = role.toUpperCase() === 'ADMIN'
-  const expectedAdminSecret = process.env.ADMIN_SECRET_KEY || 'BUN_MASKA_ADMIN_2026'
+  const requestedRole = String(role).toUpperCase()
+  if (!['ADMIN', 'STAFF'].includes(requestedRole)) {
+    return { status: 400, body: { error: 'Admin accounts can only use the ADMIN or STAFF role.' } }
+  }
+  const isRegisteringAdmin = requestedRole === 'ADMIN'
+  const expectedAdminSecret = process.env.ADMIN_SECRET_KEY
 
   if (isRegisteringAdmin) {
-    if (!adminSecretKey || String(adminSecretKey).trim() !== expectedAdminSecret) {
+    if (!expectedAdminSecret || !adminSecretKey || String(adminSecretKey).trim() !== expectedAdminSecret) {
       return {
         status: 403,
         body: { error: 'Invalid Admin Security Passcode. Only authorized store managers with the Master Key can register Admin accounts.' },
@@ -333,14 +370,14 @@ async function registerAuthUser(body) {
     return { status: 400, body: { error: 'An account with this email already exists. Please login instead.' } }
   }
 
-  const userRole = role.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'CUSTOMER'
+  const userRole = requestedRole
   const result = await supabaseRequest('users?select=*', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
       name: name.trim(),
       email: normalizedEmail,
-      password: password.trim(),
+      password: await hashPassword(password.trim()),
       role: userRole,
     }),
   })
@@ -352,15 +389,9 @@ async function registerAuthUser(body) {
     body: {
       success: true,
       message: 'Account registered successfully!',
+      token: signAccessToken(user),
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone || '',
-        address: user.address || '',
-        city: user.city || '',
-        zip: user.zip || '',
-        role: user.role,
+        ...sanitizeUser(user),
       },
     },
   }
@@ -376,22 +407,26 @@ async function loginAuthUser(body) {
   const result = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}&select=*`)
   if (result.status < 400 && Array.isArray(result.body) && result.body.length > 0) {
     const user = result.body[0]
-    if (user.password === password.trim()) {
+    const validPassword = user.password && isPasswordHash(user.password)
+      ? await verifyPassword(password.trim(), user.password)
+      : user.password === password.trim()
+    if (validPassword) {
+      if (!isPasswordHash(user.password)) {
+        const upgraded = await supabaseRequest(`users?id=eq.${encodeURIComponent(user.id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ password: await hashPassword(password.trim()), tokenVersion: Number(user.tokenVersion || 0) + 1 }),
+        })
+        if (upgraded.status < 400 && Array.isArray(upgraded.body) && upgraded.body[0]) Object.assign(user, upgraded.body[0])
+      }
+      const token = signAccessToken(user)
       return {
         status: 200,
         body: {
           success: true,
           message: 'Logged in successfully!',
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone || '',
-            address: user.address || '',
-            city: user.city || '',
-            zip: user.zip || '',
-            role: user.role,
-          },
+          token,
+          user: sanitizeUser(user),
         },
       }
     }
@@ -400,12 +435,13 @@ async function loginAuthUser(body) {
   return { status: 401, body: { error: 'Invalid email or password.' } }
 }
 
-async function updateUserProfile(body) {
+async function updateUserProfile(body, authUser) {
   const { email, name, phone, address, city, zip } = body || {}
   if (!email || !email.trim()) {
     return { status: 400, body: { error: 'User email is required to update profile.' } }
   }
   const normalizedEmail = email.trim().toLowerCase()
+  if (authUser?.email !== normalizedEmail) return { status: 403, body: { error: 'You can only update your own profile.' } }
 
   const updateFields = {}
   if (name !== undefined) updateFields.name = String(name).trim()
@@ -596,10 +632,13 @@ async function handleResetPassword(body) {
   if (!verifyResetToken(token, normalizedEmail)) {
     return { status: 400, body: { error: 'Password reset link is invalid or has expired. Please request a new one.' } }
   }
+  const existing = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}&select=id,tokenVersion`)
+  const user = Array.isArray(existing.body) ? existing.body[0] : null
+  if (existing.status >= 400 || !user) return { status: 404, body: { error: 'User account not found.' } }
   const result = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}`, {
     method: 'PATCH',
     headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify({ password: newPassword.trim() }),
+    body: JSON.stringify({ password: await hashPassword(newPassword.trim()), tokenVersion: Number(user.tokenVersion || 0) + 1 }),
   })
 
   if (result.status >= 400) return result
@@ -612,13 +651,14 @@ async function handleResetPassword(body) {
   }
 }
 
-async function handleChangePassword(body) {
+async function handleChangePassword(body, authUser) {
   const { email, currentPassword, newPassword } = body || {}
   if (!email || !currentPassword || !newPassword) {
     return { status: 400, body: { error: 'Current password and new password are required.' } }
   }
 
   const normalizedEmail = email.trim().toLowerCase()
+  if (authUser?.email !== normalizedEmail) return { status: 403, body: { error: 'You can only change your own password.' } }
   const existing = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}&select=*`)
 
   if (existing.status >= 400 || !Array.isArray(existing.body) || existing.body.length === 0) {
@@ -626,7 +666,10 @@ async function handleChangePassword(body) {
   }
 
   const user = existing.body[0]
-  if (user.password && user.password !== currentPassword.trim()) {
+  const currentPasswordValid = user.password && isPasswordHash(user.password)
+    ? await verifyPassword(currentPassword.trim(), user.password)
+    : user.password === currentPassword.trim()
+  if (!currentPasswordValid) {
     return { status: 400, body: { error: 'Incorrect current password. Please try again or use email reset.' } }
   }
 
@@ -637,7 +680,7 @@ async function handleChangePassword(body) {
   const result = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}`, {
     method: 'PATCH',
     headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify({ password: newPassword.trim() }),
+    body: JSON.stringify({ password: await hashPassword(newPassword.trim()), tokenVersion: Number(user.tokenVersion || 0) + 1 }),
   })
 
   if (result.status >= 400) return result
@@ -646,7 +689,7 @@ async function handleChangePassword(body) {
 
 const DEFAULT_SETTINGS = {
   isStoreOpen: true,
-  storeClosedNotice: 'Our cafe is currently closed for online orders. Daily operating hours: 11:00 AM - 11:30 PM.',
+  storeClosedNotice: 'Our cafe daily operating hours: 11:00 AM - 11:30 PM.',
   deliveryFee: 4.99,
   taxRate: 0.08,
   freeDeliveryThreshold: 500,
@@ -711,12 +754,12 @@ async function uploadSlideImage(slideId, dataUrl, contentType = 'image/jpeg') {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: SLIDE_IMAGE_BUCKET, name: SLIDE_IMAGE_BUCKET, public: true }),
-  }).catch(() => {})
+  }).catch(() => { })
   await fetch(`${url}/storage/v1/bucket/${SLIDE_IMAGE_BUCKET}`, {
     method: 'PUT',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ public: true }),
-  }).catch(() => {})
+  }).catch(() => { })
 
 
   const response = await fetch(`${url}/storage/v1/object/${SLIDE_IMAGE_BUCKET}/${objectPath}`, {
@@ -837,7 +880,7 @@ async function getAdminUsers() {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
 
   if (req.method === 'OPTIONS') return res.status(204).end()
@@ -848,51 +891,83 @@ export default async function handler(req, res) {
     const productSlug = route.match(/\/db\/products\/([^/]+)$/)?.[1]
     const orderStatusMatch = route.match(/\/db\/orders\/([^/]+)\/status$/)
     const orderStatusId = orderStatusMatch ? decodeURIComponent(orderStatusMatch[1]) : null
+    const isAdminUsersRoute = route.endsWith('/admin/users')
+    const isStaffRoute = (productSlug && ['PUT', 'DELETE'].includes(req.method))
+      || route.endsWith('/db/product-images')
+      || Boolean(orderStatusId)
+    const isAuthenticatedRoute = isAdminUsersRoute
+      || isStaffRoute
+      || (route.endsWith('/db/orders') && req.method === 'GET')
+      || route.endsWith('/auth/profile')
+      || route.endsWith('/auth/change-password')
+      || route.endsWith('/auth/logout')
+    const isAdminOnlyRoute = (route.endsWith('/db/settings') && req.method !== 'GET')
+      || (route.endsWith('/db/slides') && req.method !== 'GET')
+      || route.endsWith('/db/slide-images')
+
+    if (isAuthenticatedRoute || isAdminOnlyRoute) {
+      const auth = await authenticateApi(req)
+      if (auth.status) return json(res, auth.status, auth.body)
+      if (isAdminOnlyRoute && auth.user.role !== 'ADMIN') return json(res, 403, { error: 'Admin access required.' })
+      if (isAdminUsersRoute && auth.user.role !== 'ADMIN') return json(res, 403, { error: 'Admin access required.' })
+      if (isStaffRoute && !hasStaffRole(auth.user)) return json(res, 403, { error: 'Staff or admin access required.' })
+      if ((productSlug || route.endsWith('/db/product-images')) && auth.user.role !== 'ADMIN') return json(res, 403, { error: 'Admin access required.' })
+      req.authUser = auth.user
+    }
+
+    if (route.endsWith('/auth/logout') && req.method === 'POST') {
+      const result = await supabaseRequest(`users?id=eq.${encodeURIComponent(req.authUser.id)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ tokenVersion: Number(req.authUser.tokenVersion || 0) + 1 }),
+      })
+      return json(res, result.status >= 400 ? result.status : 200, result.status >= 400 ? result.body : { success: true })
+    }
 
     const result = route.endsWith('/auth/register') && req.method === 'POST'
       ? await registerAuthUser(req.body || {})
       : route.endsWith('/auth/login') && req.method === 'POST'
         ? await loginAuthUser(req.body || {})
-      : route.endsWith('/admin/users') && req.method === 'GET'
-        ? await getAdminUsers()
+        : route.endsWith('/admin/users') && req.method === 'GET'
+          ? await getAdminUsers()
 
-        : route.endsWith('/auth/forgot-password') && req.method === 'POST'
-          ? await handleForgotPassword(req.body || {})
-          : route.endsWith('/auth/reset-password') && req.method === 'POST'
-            ? await handleResetPassword(req.body || {})
-            : route.endsWith('/auth/change-password') && (req.method === 'PUT' || req.method === 'POST')
-              ? await handleChangePassword(req.body || {})
-              : route.endsWith('/auth/profile') && (req.method === 'PUT' || req.method === 'PATCH')
-                ? await updateUserProfile(req.body || {})
-                : route.endsWith('/db/settings') && req.method === 'GET'
-                  ? await getSettings()
-                  : route.endsWith('/db/settings') && (req.method === 'PUT' || req.method === 'POST')
-                    ? await saveSettings(req.body || {})
-                    : route.endsWith('/db/slides') && req.method === 'GET'
-                      ? await getSlides()
-                      : route.endsWith('/db/slides') && (req.method === 'PUT' || req.method === 'POST')
-                        ? await saveSlides(req.body || {})
-                        : route.endsWith('/db/slide-images') && req.method === 'POST'
-                          ? await uploadSlideImage(req.body?.slideId, req.body?.image, req.body?.contentType)
-                          : route.endsWith('/db/products') && req.method === 'GET'
-                            ? await getProducts()
-                            : route.endsWith('/db/product-images') && req.method === 'POST'
-                              ? await uploadProductImage(req.body?.slug, req.body?.image, req.body?.contentType)
-                              : productSlug && req.method === 'PUT'
-                                ? await saveProduct(decodeURIComponent(productSlug), req.body || {})
-                                : productSlug && req.method === 'DELETE'
-                                  ? await deleteProduct(decodeURIComponent(productSlug))
-                                  : orderStatusId && (req.method === 'PATCH' || req.method === 'PUT')
-                                    ? await updateOrderStatusInDb(orderStatusId, req.body?.status)
-                                    : route.endsWith('/db/orders') && req.method === 'GET'
-                                      ? await getOrders(requestUrl.searchParams)
-                                      : route.endsWith('/db/orders') && req.method === 'POST'
-                                        ? await saveOrder(req.body || {})
-                                        : route.endsWith('/payments/create-order') && req.method === 'POST'
-                                          ? await createRazorpayOrder(req.body || {})
-                                          : route.endsWith('/payments/verify') && req.method === 'POST'
-                                            ? await verifyPayment(req.body || {})
-                                            : { status: 404, body: { error: 'API route not found' } }
+          : route.endsWith('/auth/forgot-password') && req.method === 'POST'
+            ? await handleForgotPassword(req.body || {})
+            : route.endsWith('/auth/reset-password') && req.method === 'POST'
+              ? await handleResetPassword(req.body || {})
+              : route.endsWith('/auth/change-password') && (req.method === 'PUT' || req.method === 'POST')
+                ? await handleChangePassword(req.body || {}, req.authUser)
+                : route.endsWith('/auth/profile') && (req.method === 'PUT' || req.method === 'PATCH')
+                  ? await updateUserProfile(req.body || {}, req.authUser)
+                  : route.endsWith('/db/settings') && req.method === 'GET'
+                    ? await getSettings()
+                    : route.endsWith('/db/settings') && (req.method === 'PUT' || req.method === 'POST')
+                      ? await saveSettings(req.body || {})
+                      : route.endsWith('/db/slides') && req.method === 'GET'
+                        ? await getSlides()
+                        : route.endsWith('/db/slides') && (req.method === 'PUT' || req.method === 'POST')
+                          ? await saveSlides(req.body || {})
+                          : route.endsWith('/db/slide-images') && req.method === 'POST'
+                            ? await uploadSlideImage(req.body?.slideId, req.body?.image, req.body?.contentType)
+                            : route.endsWith('/db/products') && req.method === 'GET'
+                              ? await getProducts()
+                              : route.endsWith('/db/product-images') && req.method === 'POST'
+                                ? await uploadProductImage(req.body?.slug, req.body?.image, req.body?.contentType)
+                                : productSlug && req.method === 'PUT'
+                                  ? await saveProduct(decodeURIComponent(productSlug), req.body || {})
+                                  : productSlug && req.method === 'DELETE'
+                                    ? await deleteProduct(decodeURIComponent(productSlug))
+                                    : orderStatusId && (req.method === 'PATCH' || req.method === 'PUT')
+                                      ? await updateOrderStatusInDb(orderStatusId, req.body?.status)
+                                      : route.endsWith('/db/orders') && req.method === 'GET'
+                                        ? await getOrders(requestUrl.searchParams, req.authUser)
+                                        : route.endsWith('/db/orders') && req.method === 'POST'
+                                          ? await saveOrder(req.body || {})
+                                          : route.endsWith('/payments/create-order') && req.method === 'POST'
+                                            ? await createRazorpayOrder(req.body || {})
+                                            : route.endsWith('/payments/verify') && req.method === 'POST'
+                                              ? await verifyPayment(req.body || {})
+                                              : { status: 404, body: { error: 'API route not found' } }
 
     return json(res, result.status, result.body)
   } catch (error) {

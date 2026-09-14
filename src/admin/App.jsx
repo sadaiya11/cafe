@@ -17,6 +17,14 @@ import { playNewOrderChime } from './services/soundAlert';
 import { getLocalCatalog } from '../services/productCatalog';
 
 export default function App() {
+  const staffSession = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('bun_maska_staff_session') || 'null')
+    } catch {
+      return null
+    }
+  })()
+  const isStaff = staffSession?.role === 'STAFF'
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('orders');
   const [soundEnabled, setSoundEnabled] = useState(() => {
@@ -145,6 +153,7 @@ export default function App() {
           ordersCount={orders.length}
           productsCount={productsCount}
           totalRevenue={totalRevenue}
+            isStaff={isStaff}
         />
 
         {/* Content Area */}
@@ -158,38 +167,38 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'products' && (
+          {!isStaff && activeTab === 'products' && (
             <ProductsCatalogView onProductsChange={handleProductsChange} />
           )}
 
-          {activeTab === 'payments' && (
+          {!isStaff && activeTab === 'payments' && (
             <PaymentsLogView 
               orders={orders}
               onSelectOrder={setSelectedOrder}
             />
           )}
 
-          {activeTab === 'analytics' && (
+          {!isStaff && activeTab === 'analytics' && (
             <AnalyticsDashboardView orders={orders} />
           )}
 
-          {activeTab === 'coupons' && (
+          {!isStaff && activeTab === 'coupons' && (
             <CouponsManagerView />
           )}
 
-          {activeTab === 'inventory' && (
+          {!isStaff && activeTab === 'inventory' && (
             <InventoryManagerView />
           )}
 
-          {activeTab === 'settings' && (
+          {!isStaff && activeTab === 'settings' && (
             <StoreSettingsView />
           )}
 
-          {activeTab === 'customers' && (
+          {!isStaff && activeTab === 'customers' && (
             <CustomersManagerView orders={orders} />
           )}
 
-          {activeTab === 'reviews' && (
+          {!isStaff && activeTab === 'reviews' && (
             <ReviewsManagerView />
           )}
         </main>

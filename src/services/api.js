@@ -1,5 +1,16 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
+function authHeaders() {
+  try {
+    const user = JSON.parse(localStorage.getItem('bun-maska-user') || 'null')
+    const staff = JSON.parse(localStorage.getItem('bun_maska_staff_session') || 'null')
+    const token = user?.token || staff?.token
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  } catch {
+    return {}
+  }
+}
+
 /** Register a new user account in database */
 export async function registerUser({ name, email, password, role = 'CUSTOMER', adminSecretKey }) {
   const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
@@ -30,11 +41,21 @@ export async function loginUser({ email, password }) {
   return data
 }
 
+export async function logoutUser() {
+  const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  localStorage.removeItem('bun-maska-user')
+  if (!response.ok && response.status !== 401) throw new Error('Failed to sign out.')
+  return response.json().catch(() => ({ success: true }))
+}
+
 /** Update user profile (name, phone, address, city, zip) in database */
 export async function updateUserProfile({ email, name, phone, address, city, zip }) {
   const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ email, name, phone, address, city, zip }),
   })
 
@@ -80,7 +101,7 @@ export async function resetPassword({ email, token, newPassword }) {
 export async function changePassword({ email, currentPassword, newPassword }) {
   const response = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ email, currentPassword, newPassword }),
   })
 
@@ -95,7 +116,7 @@ export async function changePassword({ email, currentPassword, newPassword }) {
 export async function createOrder(orderPayload) {
   const response = await fetch(`${API_BASE_URL}/api/db/orders`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(orderPayload),
   })
 
@@ -131,7 +152,7 @@ export async function getOrders(userEmail = '') {
   let orders = []
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/db/orders${query}`)
+    const response = await fetch(`${API_BASE_URL}/api/db/orders${query}`, { headers: authHeaders() })
     if (response.ok) {
       orders = await response.json()
     }
@@ -193,7 +214,7 @@ export async function getProducts() {
 export async function saveProduct(product) {
   const response = await fetch(`${API_BASE_URL}/api/db/products/${encodeURIComponent(product.slug)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(product),
   })
 
@@ -209,6 +230,7 @@ export async function saveProduct(product) {
 export async function deleteProduct(slug) {
   const response = await fetch(`${API_BASE_URL}/api/db/products/${encodeURIComponent(slug)}`, {
     method: 'DELETE',
+    headers: authHeaders(),
   })
 
   if (!response.ok) {
@@ -234,7 +256,7 @@ export async function uploadProductImage(slug, file) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/db/product-images`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ slug, image: dataUrl, contentType: file.type }),
     })
 
@@ -253,6 +275,7 @@ export async function uploadProductImage(slug, file) {
 export default {
   registerUser,
   loginUser,
+  logoutUser,
   updateUserProfile,
   forgotPassword,
   resetPassword,

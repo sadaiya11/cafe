@@ -5,7 +5,8 @@ export default function AdminSidebar({
   setActiveTab, 
   ordersCount, 
   productsCount, 
-  totalRevenue 
+  totalRevenue,
+  isStaff = false,
 }) {
   const navItems = [
     {
@@ -73,7 +74,7 @@ export default function AdminSidebar({
       badge: null,
       desc: 'Moderate customer ratings'
     }
-  ];
+  ].filter((item) => !isStaff || item.id === 'orders');
 
 
   return (
@@ -136,7 +137,7 @@ export default function AdminSidebar({
         </div>
 
         {/* Quick Revenue Summary Widget */}
-        <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3">
+        {!isStaff && <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span>Today's Total Sales</span>
             <span className="text-emerald-400 font-medium">💰 Live</span>
@@ -148,7 +149,7 @@ export default function AdminSidebar({
             <div className="bg-gradient-to-r from-amber-500 to-emerald-400 h-full w-3/4 rounded-full"></div>
           </div>
           <p className="text-[11px] text-slate-500">Includes Razorpay UPI/Cards & Cash on Delivery</p>
-        </div>
+        </div>}
 
       </div>
 
