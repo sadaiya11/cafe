@@ -56,14 +56,74 @@ export function exportOrdersToCSV(orders = [], filenamePrefix = 'Bun_Maska_Sales
   })
 
   const csvString = [headers.join(','), ...rows].join('\r\n')
-  const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' })
+  downloadCSVBlob(csvString, `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.csv`)
+}
+
+function downloadCSVBlob(csvContent, filename) {
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
-  
   const link = document.createElement('a')
   link.setAttribute('href', url)
-  link.setAttribute('download', `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.csv`)
+  link.setAttribute('download', filename)
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
+}
+
+export function exportDailyReportToCSV(dailyRows = [], filenamePrefix = 'Bun_Maska_Daily_Sales') {
+  if (!dailyRows || !dailyRows.length) {
+    alert('No daily report data to export.')
+    return
+  }
+  const headers = ['Date', 'Total Orders', 'Gross Sales (₹)', 'Discounts (₹)', 'Net Sales (₹)', 'Tax Collected (₹)', 'Delivery Fees (₹)', 'Total Revenue (₹)', 'AOV (₹)']
+  const rows = dailyRows.map(r => [
+    `"${r.dateStr}"`,
+    r.orderCount,
+    r.grossSales.toFixed(2),
+    r.discounts.toFixed(2),
+    r.netSales.toFixed(2),
+    r.tax.toFixed(2),
+    r.delivery.toFixed(2),
+    r.totalRevenue.toFixed(2),
+    r.aov.toFixed(2),
+  ].join(','))
+  downloadCSVBlob([headers.join(','), ...rows].join('\r\n'), `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.csv`)
+}
+
+export function exportProfitabilityToCSV(profitRows = [], filenamePrefix = 'Bun_Maska_Product_Profitability') {
+  if (!profitRows || !profitRows.length) {
+    alert('No product profitability data to export.')
+    return
+  }
+  const headers = ['Product Name', 'Category', 'Qty Sold', 'Avg Unit Price (₹)', 'Est. Unit Cost (₹)', 'Total Revenue (₹)', 'Total COGS (₹)', 'Gross Profit (₹)', 'Margin %']
+  const rows = profitRows.map(p => [
+    `"${p.title.replace(/"/g, '""')}"`,
+    `"${(p.category || 'General').replace(/"/g, '""')}"`,
+    p.qty,
+    p.unitPrice.toFixed(2),
+    p.unitCost.toFixed(2),
+    p.totalRevenue.toFixed(2),
+    p.totalCost.toFixed(2),
+    p.grossProfit.toFixed(2),
+    `${p.marginPct.toFixed(1)}%`,
+  ].join(','))
+  downloadCSVBlob([headers.join(','), ...rows].join('\r\n'), `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.csv`)
+}
+
+export function exportRepeatCustomersToCSV(customerRows = [], filenamePrefix = 'Bun_Maska_Customer_Retention') {
+  if (!customerRows || !customerRows.length) {
+    alert('No customer data to export.')
+    return
+  }
+  const headers = ['Customer Name', 'Phone / Email', 'Total Orders', 'Total Spent (₹)', 'Average Order Value (₹)', 'Customer Type']
+  const rows = customerRows.map(c => [
+    `"${c.name.replace(/"/g, '""')}"`,
+    `"${c.contact.replace(/"/g, '""')}"`,
+    c.orderCount,
+    c.totalSpent.toFixed(2),
+    c.aov.toFixed(2),
+    `"${c.isRepeat ? 'Repeat Customer' : 'Single Order'}"`,
+  ].join(','))
+  downloadCSVBlob([headers.join(','), ...rows].join('\r\n'), `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.csv`)
 }
