@@ -16,6 +16,18 @@ import { fetchAdminOrders, updateOrderStatus } from './services/adminApi';
 import { playNewOrderChime } from './services/soundAlert';
 import { getLocalCatalog } from '../services/productCatalog';
 
+const VALID_TABS = ['orders', 'products', 'payments', 'analytics', 'coupons', 'inventory', 'settings', 'customers', 'reviews'];
+
+function getInitialAdminTab() {
+  try {
+    const hash = window.location.hash.replace('#', '').trim();
+    if (hash && VALID_TABS.includes(hash)) return hash;
+    const saved = localStorage.getItem('bun_admin_active_tab');
+    if (saved && VALID_TABS.includes(saved)) return saved;
+  } catch {}
+  return 'orders';
+}
+
 export default function App() {
   const staffSession = (() => {
     try {
@@ -26,7 +38,33 @@ export default function App() {
   })()
   const isStaff = staffSession?.role === 'STAFF'
   const [orders, setOrders] = useState([]);
-  const [activeTab, setActiveTab] = useState('orders');
+  const [activeTab, setActiveTabState] = useState(getInitialAdminTab);
+
+  const setActiveTab = useCallback((tabId) => {
+    if (!VALID_TABS.includes(tabId)) return;
+    setActiveTabState(tabId);
+    try {
+      localStorage.setItem('bun_admin_active_tab', tabId);
+      if (window.location.hash !== `#${tabId}`) {
+        window.history.replaceState(null, '', `#${tabId}`);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace('#', '').trim();
+      if (hash && VALID_TABS.includes(hash)) {
+        setActiveTabState(hash);
+        try {
+          localStorage.setItem('bun_admin_active_tab', hash);
+        } catch {}
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('bun_admin_sound') !== 'false';
   });
