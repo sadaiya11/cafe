@@ -84,10 +84,6 @@ export function startOrderStatusWatcher(userEmail = '', intervalMs = 8000) {
     }
   }
 
-  checkStatusChanges()
-  timerId = setInterval(checkStatusChanges, intervalMs)
-
-  return () => {
-    if (timerId) clearInterval(timerId)
-  }
+  // Manual status check on demand without automatic background interval loops
+  return () => {}
 }

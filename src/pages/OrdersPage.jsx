@@ -41,7 +41,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders()
-  }, [user])
+  }, [user?.email])
 
   const handleReorder = (order) => {
     const itemsList = Array.isArray(order.items) ? order.items : Array.isArray(order.order_items) ? order.order_items : []
