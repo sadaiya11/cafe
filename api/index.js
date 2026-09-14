@@ -625,10 +625,12 @@ async function registerAuthUser(body) {
   }
 
   const userRole = requestedRole
+  const newUserId = crypto.randomUUID()
   const result = await supabaseRequest('users?select=*', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
+      id: newUserId,
       name: name.trim(),
       email: normalizedEmail,
       password: await hashPassword(password.trim()),
@@ -1441,11 +1443,13 @@ async function registerStaffUser(body) {
   }
 
   const userRole = ['ADMIN', 'STAFF'].includes(String(role).toUpperCase()) ? String(role).toUpperCase() : 'STAFF'
+  const newUserId = crypto.randomUUID()
 
   const result = await supabaseRequest('users?select=*', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
+      id: newUserId,
       name: name.trim(),
       email: normalizedEmail,
       password: await hashPassword(password.trim()),
