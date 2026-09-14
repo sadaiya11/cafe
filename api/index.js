@@ -665,7 +665,8 @@ async function loginAuthUser(body) {
       ? await verifyPassword(password.trim(), user.password)
       : user.password === password.trim()
     if (validPassword) {
-      if (user.isAllowedLogin === false || user.disabled === true || user.status === 'DISABLED') {
+      const disabledList = await getDisabledStaffList()
+      if (disabledList.includes(normalizedEmail) || disabledList.includes(String(user.id))) {
         return { status: 403, body: { error: 'Your login permission has been disabled by the store administrator. Please contact your manager.' } }
       }
       if (!isPasswordHash(user.password)) {
@@ -1299,21 +1300,67 @@ async function saveProductReviews(slug, reviewsList) {
   return { status: 200, body: { success: true, reviews: reviewsList } }
 }
 
+const serverDisabledStaffCache = new Set()
+
+async function getDisabledStaffList() {
+  const result = await supabaseRequest('products?slug=eq._system_disabled_staff&select=*')
+  if (result.status === 200 && Array.isArray(result.body) && result.body.length > 0) {
+    const val = result.body[0].variants
+    if (Array.isArray(val)) {
+      serverDisabledStaffCache.clear()
+      val.forEach((e) => serverDisabledStaffCache.add(String(e).toLowerCase()))
+    }
+  }
+  return Array.from(serverDisabledStaffCache)
+}
+
+async function saveDisabledStaffList(list) {
+  const normalizedList = Array.from(new Set((list || []).map((e) => String(e).toLowerCase())))
+  serverDisabledStaffCache.clear()
+  normalizedList.forEach((e) => serverDisabledStaffCache.add(e))
+
+  const itemToSave = {
+    slug: '_system_disabled_staff',
+    title: 'System Disabled Staff',
+    category: '_system',
+    description: 'System record for disabled staff login permissions',
+    price: 0,
+    image: '',
+    variants: normalizedList,
+    inStock: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  await supabaseRequest('products?on_conflict=slug', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(itemToSave),
+  })
+  return normalizedList
+}
+
 async function getAdminUsers() {
   const result = await supabaseRequest('users?select=*&order=createdAt.desc')
   if (result.status === 200 && Array.isArray(result.body)) {
-    const sanitized = result.body.map((u) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      phone: u.phone || '',
-      address: u.address || '',
-      city: u.city || '',
-      zip: u.zip || '',
-      role: u.role || 'CUSTOMER',
-      isAllowedLogin: u.isAllowedLogin !== false && u.disabled !== true && u.status !== 'DISABLED',
-      createdAt: u.createdAt || u.created_at,
-    }))
+    const disabledList = await getDisabledStaffList()
+    const sanitized = result.body.map((u) => {
+      const uEmail = String(u.email || '').toLowerCase()
+      const uId = String(u.id || '')
+      const isDisabled = disabledList.includes(uEmail) || disabledList.includes(uId)
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone || '',
+        address: u.address || '',
+        city: u.city || '',
+        zip: u.zip || '',
+        role: u.role || 'CUSTOMER',
+        isAllowedLogin: !isDisabled,
+        createdAt: u.createdAt || u.created_at,
+      }
+    })
     return { status: 200, body: sanitized }
   }
   return result
@@ -1322,26 +1369,59 @@ async function getAdminUsers() {
 async function updateAdminUserStatus(userId, body) {
   if (!userId) return { status: 400, body: { error: 'User ID is required.' } }
   const { isAllowedLogin, role } = body || {}
-  const patchData = {}
-  if (isAllowedLogin !== undefined) patchData.isAllowedLogin = Boolean(isAllowedLogin)
-  if (role !== undefined) patchData.role = String(role)
-  const result = await supabaseRequest(`users?id=eq.${encodeURIComponent(userId)}`, {
-    method: 'PATCH',
-    headers: { Prefer: 'return=representation' },
-    body: JSON.stringify(patchData),
-  })
-  if (result.status >= 400) return result
-  const user = Array.isArray(result.body) ? result.body[0] : result.body
-  return { status: 200, body: { success: true, user: sanitizeUser(user) } }
+
+  const userRes = await supabaseRequest(`users?id=eq.${encodeURIComponent(userId)}&select=*`)
+  const user = (userRes.status < 400 && Array.isArray(userRes.body)) ? userRes.body[0] : null
+  if (!user) return { status: 404, body: { error: 'User not found.' } }
+
+  if (role !== undefined) {
+    await supabaseRequest(`users?id=eq.${encodeURIComponent(userId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ role: String(role) }),
+    })
+    user.role = role
+  }
+
+  let disabledList = await getDisabledStaffList()
+  const uEmail = String(user.email || '').toLowerCase()
+  if (isAllowedLogin === false) {
+    if (!disabledList.includes(uEmail)) disabledList.push(uEmail)
+  } else if (isAllowedLogin === true) {
+    disabledList = disabledList.filter((e) => e !== uEmail && e !== String(userId))
+  }
+  await saveDisabledStaffList(disabledList)
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      user: {
+        ...sanitizeUser(user),
+        isAllowedLogin: isAllowedLogin !== false,
+      },
+    },
+  }
 }
 
 async function deleteAdminUser(userId) {
   if (!userId) return { status: 400, body: { error: 'User ID is required.' } }
+
+  const userRes = await supabaseRequest(`users?id=eq.${encodeURIComponent(userId)}&select=*`)
+  const user = (userRes.status < 400 && Array.isArray(userRes.body)) ? userRes.body[0] : null
+
   const result = await supabaseRequest(`users?id=eq.${encodeURIComponent(userId)}`, {
     method: 'DELETE',
     headers: { Prefer: 'return=minimal' },
   })
   if (result.status >= 400) return result
+
+  if (user && user.email) {
+    let disabledList = await getDisabledStaffList()
+    disabledList = disabledList.filter((e) => e !== String(user.email).toLowerCase() && e !== String(userId))
+    await saveDisabledStaffList(disabledList)
+  }
+
   return { status: 200, body: { success: true, message: 'Staff member account deleted/unregistered.' } }
 }
 
@@ -1361,6 +1441,7 @@ async function registerStaffUser(body) {
   }
 
   const userRole = ['ADMIN', 'STAFF'].includes(String(role).toUpperCase()) ? String(role).toUpperCase() : 'STAFF'
+
   const result = await supabaseRequest('users?select=*', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
@@ -1370,13 +1451,19 @@ async function registerStaffUser(body) {
       password: await hashPassword(password.trim()),
       phone: phone ? String(phone).trim() : '',
       role: userRole,
-      isAllowedLogin: true,
     }),
   })
 
   if (result.status >= 400) return result
   const user = Array.isArray(result.body) ? result.body[0] : result.body
-  return { status: 201, body: { success: true, user: sanitizeUser(user) } }
+
+  let disabledList = await getDisabledStaffList()
+  if (disabledList.includes(normalizedEmail)) {
+    disabledList = disabledList.filter((e) => e !== normalizedEmail)
+    await saveDisabledStaffList(disabledList)
+  }
+
+  return { status: 201, body: { success: true, user: { ...sanitizeUser(user), isAllowedLogin: true } } }
 }
 
 export default async function handler(req, res) {

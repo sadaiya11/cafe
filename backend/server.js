@@ -206,7 +206,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password.' })
     }
 
-    if (user.isAllowedLogin === false || user.disabled === true || user.status === 'DISABLED') {
+    if (user.disabled === true || user.status === 'DISABLED') {
       return res.status(403).json({ error: 'Your login permission has been disabled by the store administrator. Please contact your manager.' })
     }
 
@@ -284,13 +284,12 @@ app.get('/api/admin/users', authenticateRequest, requireAdmin, async (req, res) 
         city: true,
         zip: true,
         role: true,
-        isAllowedLogin: true,
         createdAt: true,
       },
     })
     const sanitized = users.map((u) => ({
       ...u,
-      isAllowedLogin: u.isAllowedLogin !== false && u.disabled !== true && u.status !== 'DISABLED',
+      isAllowedLogin: u.disabled !== true && u.status !== 'DISABLED',
     }))
     res.json(sanitized)
   } catch (error) {
@@ -302,9 +301,8 @@ app.get('/api/admin/users', authenticateRequest, requireAdmin, async (req, res) 
 app.patch('/api/admin/users/:id', authenticateRequest, requireAdmin, async (req, res) => {
   try {
     const userId = req.params.id
-    const { isAllowedLogin, role } = req.body || {}
+    const { role } = req.body || {}
     const updateData = {}
-    if (isAllowedLogin !== undefined) updateData.isAllowedLogin = Boolean(isAllowedLogin)
     if (role !== undefined) updateData.role = String(role)
     const user = await prisma.user.update({
       where: { id: userId },
@@ -347,7 +345,6 @@ app.post('/api/admin/staff', authenticateRequest, requireAdmin, async (req, res)
         password: await hashPassword(password.trim()),
         phone: phone ? String(phone).trim() : '',
         role: userRole,
-        isAllowedLogin: true,
       },
     })
     res.status(201).json({ success: true, user: sanitizeUser(newUser) })
