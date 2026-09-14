@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { getCoupons, saveCoupons } from '../../services/couponService';
+import { useEffect, useState } from 'react';
+import { fetchCoupons, getCoupons, saveCoupons } from '../../services/couponService';
 
 export default function CouponsManagerView() {
   const [coupons, setCoupons] = useState(getCoupons);
@@ -10,7 +10,11 @@ export default function CouponsManagerView() {
   const [description, setDescription] = useState('');
   const [notice, setNotice] = useState('');
 
-  const handleCreateCoupon = (e) => {
+  useEffect(() => {
+    fetchCoupons().then(setCoupons);
+  }, []);
+
+  const handleCreateCoupon = async (e) => {
     e.preventDefault();
     if (!code.trim()) {
       setNotice('Please enter a coupon code.');
@@ -33,7 +37,7 @@ export default function CouponsManagerView() {
 
     const updated = [newCoupon, ...coupons.filter(c => c.code !== newCoupon.code)];
     setCoupons(updated);
-    saveCoupons(updated);
+    await saveCoupons(updated);
 
     setCode('');
     setValue('');
@@ -42,17 +46,17 @@ export default function CouponsManagerView() {
     setNotice(`✅ Coupon "${newCoupon.code}" created successfully!`);
   };
 
-  const toggleActive = (couponCode) => {
+  const toggleActive = async (couponCode) => {
     const updated = coupons.map(c => c.code === couponCode ? { ...c, active: !c.active } : c);
     setCoupons(updated);
-    saveCoupons(updated);
+    await saveCoupons(updated);
   };
 
-  const handleDelete = (couponCode) => {
+  const handleDelete = async (couponCode) => {
     if (window.confirm(`Delete coupon "${couponCode}"?`)) {
       const updated = coupons.filter(c => c.code !== couponCode);
       setCoupons(updated);
-      saveCoupons(updated);
+      await saveCoupons(updated);
       setNotice(`🗑️ Coupon "${couponCode}" deleted.`);
     }
   };

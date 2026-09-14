@@ -33,13 +33,15 @@ export default function StoreSettingsView() {
   const [editingSlide, setEditingSlide] = useState(null)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
   const handleSettingChange = (field, value) => {
     setSettings((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSaveSettings = (e) => {
+  const handleSaveSettings = async (e) => {
     e.preventDefault()
-    saveStoreSettings(settings)
+    await saveStoreSettings(settings)
     setSavedNotice('✅ Store settings & rates saved to server successfully!')
     setTimeout(() => setSavedNotice(''), 3000)
   }
@@ -60,7 +62,7 @@ export default function StoreSettingsView() {
       const dataUrl = reader.result
       try {
         const slideId = isEditing && editingSlide ? editingSlide.id : `slide-${Date.now()}`
-        const res = await fetch('/api/db/slide-images', {
+        const res = await fetch(`${API_BASE_URL}/api/db/slide-images`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -91,7 +93,7 @@ export default function StoreSettingsView() {
   }
 
 
-  const handleAddSlide = (e) => {
+  const handleAddSlide = async (e) => {
     e.preventDefault()
     if (!newSlide.title || !newSlide.subtitle || !newSlide.image) {
       alert('Please fill out all fields and upload an image for the banner slide.')
@@ -105,7 +107,7 @@ export default function StoreSettingsView() {
 
     const updated = [...slides, slideObj]
     setSlides(updated)
-    saveHeroSlides(updated)
+    await saveHeroSlides(updated)
     setNewSlide({ title: '', subtitle: '', badge: 'Special', image: '' })
     setSavedNotice('🎉 Hero slide added successfully!')
     setTimeout(() => setSavedNotice(''), 3000)
@@ -115,7 +117,7 @@ export default function StoreSettingsView() {
     setEditingSlide({ ...slide })
   }
 
-  const handleSaveEditedSlide = (e) => {
+  const handleSaveEditedSlide = async (e) => {
     e.preventDefault()
     if (!editingSlide || !editingSlide.title || !editingSlide.subtitle || !editingSlide.image) {
       alert('Please complete all slide fields and provide an image.')
@@ -124,17 +126,17 @@ export default function StoreSettingsView() {
 
     const updated = slides.map((s) => (s.id === editingSlide.id ? editingSlide : s))
     setSlides(updated)
-    saveHeroSlides(updated)
+    await saveHeroSlides(updated)
     setEditingSlide(null)
     setSavedNotice('✏️ Banner slide updated successfully!')
     setTimeout(() => setSavedNotice(''), 3000)
   }
 
-  const handleDeleteSlide = (id) => {
+  const handleDeleteSlide = async (id) => {
     if (!window.confirm('Are you sure you want to delete this hero banner?')) return
     const updated = slides.filter((s) => s.id !== id)
     setSlides(updated)
-    saveHeroSlides(updated)
+    await saveHeroSlides(updated)
   }
 
   return (

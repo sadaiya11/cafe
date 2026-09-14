@@ -179,20 +179,10 @@ export async function getOrders(userEmail = '') {
     })
   }
 
-  let statusOverrides = {}
-  try {
-    const data = localStorage.getItem('bun_maska_status_overrides')
-    statusOverrides = data ? JSON.parse(data) : {}
-  } catch (err) {
-    console.warn('Error reading status overrides:', err)
-  }
-
-  const mapped = combined.map((o) => {
-    const key1 = o.orderId ? String(o.orderId) : null
-    const key2 = o.id ? String(o.id) : null
-    const override = (key1 && statusOverrides[key1]) || (key2 && statusOverrides[key2])
-    return { ...o, status: override || o.status || 'PENDING' }
-  })
+  const mapped = combined.map((o) => ({
+    ...o,
+    status: o.status || 'PENDING',
+  }))
 
   // Sort latest orders first (date and time descending)
   return mapped.sort((a, b) => getOrderTimestamp(b) - getOrderTimestamp(a))

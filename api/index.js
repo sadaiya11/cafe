@@ -1114,6 +1114,160 @@ async function saveSlides(body) {
   return { status: 200, body: { success: true, slides: body } }
 }
 
+const DEFAULT_COUPONS = [
+  {
+    code: 'BUN20',
+    type: 'PERCENT',
+    value: 20,
+    minOrder: 150,
+    description: 'Get 20% OFF on orders above ₹150',
+    active: true,
+  },
+  {
+    code: 'FIRST50',
+    type: 'FLAT',
+    value: 50,
+    minOrder: 200,
+    description: 'Flat ₹50 OFF on orders above ₹200',
+    active: true,
+  },
+  {
+    code: 'FREESHIP',
+    type: 'FLAT',
+    value: 40,
+    minOrder: 100,
+    description: 'Free Delivery (Save ₹40)',
+    active: true,
+  },
+]
+
+const DEFAULT_REVIEWS = []
+
+const serverCouponsCache = new Map()
+const serverReviewsCache = new Map()
+
+async function getCoupons() {
+  const result = await supabaseRequest('products?slug=eq._system_store_coupons&select=*')
+  if (result.status === 200 && Array.isArray(result.body) && result.body.length > 0) {
+    const val = result.body[0].variants
+    if (Array.isArray(val)) {
+      serverCouponsCache.set('coupons', val)
+      return { status: 200, body: val }
+    }
+  }
+  const cached = serverCouponsCache.get('coupons')
+  return { status: 200, body: cached || DEFAULT_COUPONS }
+}
+
+async function saveCoupons(body) {
+  if (!Array.isArray(body)) {
+    return { status: 400, body: { error: 'Coupons body must be an array.' } }
+  }
+  serverCouponsCache.set('coupons', body)
+  const itemToSave = {
+    id: '00000000-0000-0000-0000-000000000003',
+    slug: '_system_store_coupons',
+    title: 'System Store Coupons',
+    category: '_system',
+    description: 'System coupons for promotional discounts',
+    price: 0,
+    image: '',
+    variants: body,
+    inStock: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const result = await supabaseRequest('products?on_conflict=slug', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(itemToSave),
+  })
+  if (result.status >= 400) {
+    console.warn('Supabase DB coupons save notice, using server cached coupons:', result.body)
+  }
+  return { status: 200, body: { success: true, coupons: body } }
+}
+
+async function getProductReviews(slug) {
+  if (!slug) return { status: 400, body: { error: 'Product slug is required.' } }
+  const result = await supabaseRequest(`products?slug=eq._system_reviews_${encodeURIComponent(slug)}&select=*`)
+  if (result.status === 200 && Array.isArray(result.body) && result.body.length > 0) {
+    const val = result.body[0].variants
+    if (Array.isArray(val)) {
+      serverReviewsCache.set(slug, val)
+      return { status: 200, body: val }
+    }
+  }
+  const cached = serverReviewsCache.get(slug)
+  return { status: 200, body: cached || DEFAULT_REVIEWS }
+}
+
+async function addProductReview(slug, reviewData) {
+  if (!slug || !reviewData?.name || !reviewData?.comment) {
+    return { status: 400, body: { error: 'Product slug, name and comment are required.' } }
+  }
+  const { body: existing } = await getProductReviews(slug)
+  const currentList = Array.isArray(existing) ? existing : DEFAULT_REVIEWS
+  const newRev = {
+    id: Date.now(),
+    name: String(reviewData.name).trim(),
+    rating: Number(reviewData.rating || 5),
+    comment: String(reviewData.comment).trim(),
+    date: 'Just now',
+  }
+  const updatedList = [newRev, ...currentList]
+  serverReviewsCache.set(slug, updatedList)
+
+  const itemToSave = {
+    slug: `_system_reviews_${slug}`,
+    title: `System Reviews for ${slug}`,
+    category: '_system',
+    description: `Customer reviews for ${slug}`,
+    price: 0,
+    image: '',
+    variants: updatedList,
+    inStock: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  await supabaseRequest('products?on_conflict=slug', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(itemToSave),
+  })
+
+  return { status: 201, body: { success: true, reviews: updatedList, newReview: newRev } }
+}
+
+async function saveProductReviews(slug, reviewsList) {
+  if (!slug || !Array.isArray(reviewsList)) {
+    return { status: 400, body: { error: 'Product slug and reviews array are required.' } }
+  }
+  serverReviewsCache.set(slug, reviewsList)
+
+  const itemToSave = {
+    slug: `_system_reviews_${slug}`,
+    title: `System Reviews for ${slug}`,
+    category: '_system',
+    description: `Customer reviews for ${slug}`,
+    price: 0,
+    image: '',
+    variants: reviewsList,
+    inStock: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  await supabaseRequest('products?on_conflict=slug', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+    body: JSON.stringify(itemToSave),
+  })
+
+  return { status: 200, body: { success: true, reviews: reviewsList } }
+}
+
 async function getAdminUsers() {
   const result = await supabaseRequest('users?select=*&order=createdAt.desc')
   if (result.status === 200 && Array.isArray(result.body)) {
@@ -1224,7 +1378,17 @@ export default async function handler(req, res) {
                                               ? await verifyPayment(req.body || {})
                                               : route.endsWith('/payments/webhook') && req.method === 'POST'
                                                 ? await handleRazorpayWebhook(req.body || {}, req.headers || {})
-                                                : { status: 404, body: { error: 'API route not found' } }
+                                                : route.endsWith('/db/coupons') && req.method === 'GET'
+                                                  ? await getCoupons()
+                                                  : route.endsWith('/db/coupons') && (req.method === 'PUT' || req.method === 'POST')
+                                                    ? await saveCoupons(req.body || [])
+                                                    : route.includes('/db/reviews') && req.method === 'GET'
+                                                      ? await getProductReviews(requestUrl.searchParams.get('slug'))
+                                                      : route.includes('/db/reviews') && req.method === 'POST'
+                                                        ? await addProductReview(req.body?.slug, req.body || {})
+                                                        : route.includes('/db/reviews') && req.method === 'PUT'
+                                                          ? await saveProductReviews(req.body?.slug || requestUrl.searchParams.get('slug'), req.body?.reviews || req.body)
+                                                          : { status: 404, body: { error: 'API route not found' } }
 
     return json(res, result.status, result.body)
   } catch (error) {

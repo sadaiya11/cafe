@@ -8,11 +8,7 @@ import { useCart } from '../context/useCart'
 
 const formatPrice = (price) => `₹${Number(price).toFixed(2)}`
 
-const defaultReviews = [
-  { id: 1, name: 'Rahul Sharma', rating: 5, comment: 'Absolutely authentic Bun Maska! Soft, warm, and butter is perfect with Kullad Chai.', date: '2 days ago' },
-  { id: 2, name: 'Priya Patel', rating: 5, comment: 'Best snack spot! Loved the fresh quality and fast service.', date: '1 week ago' },
-  { id: 3, name: 'Aniket Verma', rating: 4, comment: 'Very tasty and delicious. Great portion size!', date: '2 weeks ago' },
-]
+const defaultReviews = []
 
 export default function ProductDetailPage() {
   const { slug } = useParams()
@@ -32,19 +28,24 @@ export default function ProductDetailPage() {
   const [selectedSizeState, setSelectedSize] = useState(initialVariant.size)
   const [quantity, setQuantity] = useState(1)
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
   // Review & Rating State
-  const [reviews, setReviews] = useState(() => {
-    try {
-      const stored = localStorage.getItem(`bun_maska_reviews_${slug}`)
-      return stored ? JSON.parse(stored) : defaultReviews
-    } catch {
-      return defaultReviews
-    }
-  })
+  const [reviews, setReviews] = useState(defaultReviews)
   const [userRating, setUserRating] = useState(5)
   const [reviewerName, setReviewerName] = useState('')
   const [reviewComment, setReviewComment] = useState('')
   const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    if (!slug) return
+    fetch(`${API_BASE_URL}/api/db/reviews?slug=${encodeURIComponent(slug)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) setReviews(data)
+      })
+      .catch((err) => console.warn('Failed to fetch product reviews from DB:', err.message))
+  }, [slug])
 
   const selectedSize = product?.variants?.some((variant) => variant.size === selectedSizeState)
     ? selectedSizeState
@@ -54,27 +55,42 @@ export default function ProductDetailPage() {
 
   const relatedProducts = products.filter((item) => item.slug !== product?.slug && item.inStock !== false).slice(0, 3)
 
-  const handleAddReview = (e) => {
+  const handleAddReview = async (e) => {
     e.preventDefault()
     if (!reviewerName.trim() || !reviewComment.trim()) {
       setNotice('Please enter your name and comment.')
       return
     }
 
-    const newRev = {
-      id: Date.now(),
+    const reviewPayload = {
+      slug,
       name: reviewerName.trim(),
       rating: userRating,
       comment: reviewComment.trim(),
-      date: 'Just now'
     }
 
-    const updated = [newRev, ...reviews]
-    setReviews(updated)
     try {
-      localStorage.setItem(`bun_maska_reviews_${slug}`, JSON.stringify(updated))
+      const res = await fetch(`${API_BASE_URL}/api/db/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reviewPayload),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data.reviews)) {
+          setReviews(data.reviews)
+        }
+      }
     } catch (err) {
-      console.warn('Failed to save review:', err)
+      console.warn('Failed to post review to DB API:', err.message)
+      const newRev = {
+        id: Date.now(),
+        name: reviewerName.trim(),
+        rating: userRating,
+        comment: reviewComment.trim(),
+        date: 'Just now',
+      }
+      setReviews((prev) => [newRev, ...prev])
     }
 
     setReviewerName('')
@@ -284,21 +300,29 @@ export default function ProductDetailPage() {
 
           {/* Rendered Reviews List */}
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
-            {reviews.map((rev) => (
-              <div key={rev.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-900">{rev.name}</span>
-                  <span className="text-xs text-slate-400">{rev.date}</span>
-                </div>
-
-                <div className="flex text-amber-400 text-sm">
-                  {'★'.repeat(rev.rating)}
-                  <span className="text-slate-300">{'★'.repeat(5 - rev.rating)}</span>
-                </div>
-
-                <p className="text-xs text-slate-600 leading-relaxed">{rev.comment}</p>
+            {reviews.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                <div className="text-3xl">⭐</div>
+                <p className="text-xs font-bold text-slate-700">No reviews yet for this item.</p>
+                <p className="text-[11px] text-slate-400">Be the first customer to write a review!</p>
               </div>
-            ))}
+            ) : (
+              reviews.map((rev) => (
+                <div key={rev.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-slate-900">{rev.name}</span>
+                    <span className="text-xs text-slate-400">{rev.date}</span>
+                  </div>
+
+                  <div className="flex text-amber-400 text-sm">
+                    {'★'.repeat(rev.rating)}
+                    <span className="text-slate-300">{'★'.repeat(5 - rev.rating)}</span>
+                  </div>
+
+                  <p className="text-xs text-slate-600 leading-relaxed">{rev.comment}</p>
+                </div>
+              ))
+            )}
           </div>
 
         </div>

@@ -66,7 +66,8 @@ export function isStoreCurrentlyOpen(settings) {
   return currentMinutes >= openMinutesTotal && currentMinutes <= closeMinutesTotal
 }
 
-const API_BASE = '/api/db'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+const API_BASE = `${API_BASE_URL}/api/db`
 
 function staffHeaders() {
   try {
@@ -119,18 +120,22 @@ export async function fetchStoreSettingsFromServer() {
   return getStoreSettings()
 }
 
-export function saveStoreSettings(settings) {
+export async function saveStoreSettings(settings) {
   try {
     const current = getStoreSettings()
     const updated = { ...current, ...settings }
     localStorage.setItem(STORE_SETTINGS_KEY, JSON.stringify(updated))
     window.dispatchEvent(new Event('bun_store_settings_updated'))
 
-    fetch(`${API_BASE}/settings`, {
+    const res = await fetch(`${API_BASE}/settings`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...staffHeaders() },
       body: JSON.stringify(updated),
-    }).catch((err) => console.warn('Server settings sync notice:', err))
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data?.settings) return data.settings
+    }
 
     return updated
   } catch (e) {
@@ -165,16 +170,20 @@ export async function fetchHeroSlidesFromServer() {
   return getHeroSlides()
 }
 
-export function saveHeroSlides(slides) {
+export async function saveHeroSlides(slides) {
   try {
     localStorage.setItem(HERO_SLIDES_KEY, JSON.stringify(slides))
     window.dispatchEvent(new Event('bun_hero_slides_updated'))
 
-    fetch(`${API_BASE}/slides`, {
+    const res = await fetch(`${API_BASE}/slides`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...staffHeaders() },
       body: JSON.stringify(slides),
-    }).catch((err) => console.warn('Server slides sync notice:', err))
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data?.slides) return data.slides
+    }
 
     return slides
   } catch (e) {
@@ -185,34 +194,53 @@ export function saveHeroSlides(slides) {
 
 /** Reviews Management */
 export function getAllReviews() {
-  const allReviews = []
+  return []
+}
+
+export async function fetchAllReviewsFromServer() {
   try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && key.startsWith('bun_maska_reviews_')) {
-        const slug = key.replace('bun_maska_reviews_', '')
-        const reviews = JSON.parse(localStorage.getItem(key) || '[]')
-        reviews.forEach((r) => {
-          allReviews.push({ ...r, productSlug: slug })
+    const res = await fetch(`${API_BASE_URL}/api/db/products`)
+    if (res.ok) {
+      const products = await res.json()
+      const allReviews = []
+      for (const p of products) {
+        if (!p.slug) continue
+        try {
+          const revRes = await fetch(`${API_BASE_URL}/api/db/reviews?slug=${encodeURIComponent(p.slug)}`)
+          if (revRes.ok) {
+            const revs = await revRes.json()
+            if (Array.isArray(revs)) {
+              revs.forEach((r) => allReviews.push({ ...r, productSlug: p.slug }))
+            }
+          }
+        } catch (e) {
+          console.warn('DB reviews fetch notice:', e.message)
+        }
+      }
+      return allReviews
+    }
+  } catch (err) {
+    console.warn('Failed to fetch reviews from server DB:', err)
+  }
+  return []
+}
+
+export async function deleteReview(productSlug, reviewId) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/db/reviews?slug=${encodeURIComponent(productSlug)}`)
+    if (res.ok) {
+      const revs = await res.json()
+      if (Array.isArray(revs)) {
+        const updated = revs.filter((r) => r.id !== reviewId)
+        await fetch(`${API_BASE_URL}/api/db/reviews`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...staffHeaders() },
+          body: JSON.stringify({ slug: productSlug, reviews: updated }),
         })
+        window.dispatchEvent(new Event('bun_reviews_updated'))
       }
     }
   } catch (e) {
-    console.warn('Failed to fetch reviews:', e)
-  }
-  return allReviews
-}
-
-export function deleteReview(productSlug, reviewId) {
-  try {
-    const key = `bun_maska_reviews_${productSlug}`
-    const stored = localStorage.getItem(key)
-    if (stored) {
-      const reviews = JSON.parse(stored).filter((r) => r.id !== reviewId)
-      localStorage.setItem(key, JSON.stringify(reviews))
-      window.dispatchEvent(new Event('bun_reviews_updated'))
-    }
-  } catch (e) {
-    console.warn('Failed to delete review:', e)
+    console.warn('Failed to delete review on DB:', e)
   }
 }

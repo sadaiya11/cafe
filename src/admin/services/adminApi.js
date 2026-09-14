@@ -1,7 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
 const LOCAL_STORAGE_KEY = 'bun_maska_user_orders'
-const STATUS_OVERRIDES_KEY = 'bun_maska_status_overrides'
 
 function authHeaders() {
   try {
@@ -9,26 +8,6 @@ function authHeaders() {
     return session?.token ? { Authorization: `Bearer ${session.token}` } : {}
   } catch {
     return {}
-  }
-}
-
-function getStatusOverrides() {
-  try {
-    const data = localStorage.getItem(STATUS_OVERRIDES_KEY)
-    return data ? JSON.parse(data) : {}
-  } catch {
-    return {}
-  }
-}
-
-function setStatusOverride(id1, id2, newStatus) {
-  try {
-    const overrides = getStatusOverrides()
-    if (id1) overrides[String(id1)] = newStatus
-    if (id2) overrides[String(id2)] = newStatus
-    localStorage.setItem(STATUS_OVERRIDES_KEY, JSON.stringify(overrides))
-  } catch (e) {
-    console.warn('Failed to save status override:', e)
   }
 }
 
@@ -41,14 +20,9 @@ function normalizeOrder(order) {
   const amount = Number(order.amount ?? order.totalAmount ?? order.total ?? 0)
   const isOnlinePayment = Boolean(order.paymentId || order.razorpayPaymentId || order.status === 'PAID')
 
-  const overrides = getStatusOverrides()
-  const key1 = order.orderId ? String(order.orderId) : null
-  const key2 = order.id ? String(order.id) : null
-  const currentStatus = (key1 && overrides[key1]) || (key2 && overrides[key2]) || order.status || 'PENDING'
-
   return {
     ...order,
-    status: currentStatus,
+    status: order.status || 'PENDING',
     customer,
     items,
     // The database stores delivery details inside `customer`, while older local
@@ -119,10 +93,7 @@ export async function fetchAdminOrders() {
  * Update order status (CONFIRMED, PREPARING, OUT_FOR_DELIVERY, DELIVERED, CANCELLED)
  */
 export async function updateOrderStatus(primaryId, newStatus, altId = null) {
-  // 1. Immediately persist status override locally under ALL keys
-  setStatusOverride(primaryId, altId, newStatus)
-
-  // 2. Also update in local orders array
+  // 1. Update in local orders array for immediate optimistic UI update
   try {
     const localOrders = getLocalOrders()
     const updated = localOrders.map((o) => {

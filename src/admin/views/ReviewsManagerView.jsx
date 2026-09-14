@@ -1,21 +1,22 @@
 import { useState, useEffect } from 'react'
-import { getAllReviews, deleteReview } from '../../services/storeSettingsService'
+import { fetchAllReviewsFromServer, deleteReview } from '../../services/storeSettingsService'
 
 export default function ReviewsManagerView() {
-  const [reviews, setReviews] = useState(getAllReviews)
+  const [reviews, setReviews] = useState([])
   const [notice, setNotice] = useState('')
 
   const refresh = () => {
-    setReviews(getAllReviews())
+    fetchAllReviewsFromServer().then(setReviews)
   }
 
   useEffect(() => {
+    refresh()
     window.addEventListener('bun_reviews_updated', refresh)
     return () => window.removeEventListener('bun_reviews_updated', refresh)
   }, [])
 
-  const handleDelete = (productSlug, id) => {
-    deleteReview(productSlug, id)
+  const handleDelete = async (productSlug, id) => {
+    await deleteReview(productSlug, id)
     setNotice('Review deleted successfully.')
     refresh()
     setTimeout(() => setNotice(''), 3000)

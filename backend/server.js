@@ -1123,52 +1123,287 @@ const DEFAULT_HERO_SLIDES = [
   }
 ]
 
-// Store Settings & Hero Slides Server In-Memory & DB Cache
+const DEFAULT_COUPONS = [
+  {
+    code: 'BUN20',
+    type: 'PERCENT',
+    value: 20,
+    minOrder: 150,
+    description: 'Get 20% OFF on orders above ₹150',
+    active: true,
+  },
+  {
+    code: 'FIRST50',
+    type: 'FLAT',
+    value: 50,
+    minOrder: 200,
+    description: 'Flat ₹50 OFF on orders above ₹200',
+    active: true,
+  },
+  {
+    code: 'FREESHIP',
+    type: 'FLAT',
+    value: 40,
+    minOrder: 100,
+    description: 'Free Delivery (Save ₹40)',
+    active: true,
+  },
+]
+
+const DEFAULT_REVIEWS = []
+
+// Store Settings, Hero Slides, Coupons & Reviews Server Cache & Database Persistence
 let serverSettingsData = null
 let serverSlidesData = null
+let serverCouponsData = null
+const serverReviewsMap = new Map()
 
-app.get('/api/db/settings', (req, res) => {
-  res.json(serverSettingsData || DEFAULT_SETTINGS)
+async function getDbSettings() {
+  try {
+    const item = await prisma.product.findUnique({ where: { slug: '_system_store_settings' } })
+    if (item && item.variants) {
+      serverSettingsData = item.variants
+      return item.variants
+    }
+  } catch (err) { }
+  return serverSettingsData || DEFAULT_SETTINGS
+}
+
+async function saveDbSettings(settings) {
+  serverSettingsData = settings
+  try {
+    await prisma.product.upsert({
+      where: { slug: '_system_store_settings' },
+      update: { variants: settings },
+      create: {
+        slug: '_system_store_settings',
+        title: 'System Store Settings',
+        category: '_system',
+        description: 'System settings for cafe profile, contact info and rates',
+        price: 0,
+        image: '',
+        variants: settings,
+        inStock: false,
+      },
+    })
+  } catch (err) {
+    console.warn('Prisma save settings warning:', err.message)
+  }
+}
+
+async function getDbSlides() {
+  try {
+    const item = await prisma.product.findUnique({ where: { slug: '_system_hero_slides' } })
+    if (item && Array.isArray(item.variants)) {
+      serverSlidesData = item.variants
+      return item.variants
+    }
+  } catch (err) { }
+  return serverSlidesData || DEFAULT_HERO_SLIDES
+}
+
+async function saveDbSlides(slides) {
+  serverSlidesData = slides
+  try {
+    await prisma.product.upsert({
+      where: { slug: '_system_hero_slides' },
+      update: { variants: slides },
+      create: {
+        slug: '_system_hero_slides',
+        title: 'System Hero Slides',
+        category: '_system',
+        description: 'Homepage Hero Slides',
+        price: 0,
+        image: '',
+        variants: slides,
+        inStock: false,
+      },
+    })
+  } catch (err) {
+    console.warn('Prisma save slides warning:', err.message)
+  }
+}
+
+async function getDbCoupons() {
+  try {
+    const item = await prisma.product.findUnique({ where: { slug: '_system_store_coupons' } })
+    if (item && Array.isArray(item.variants)) {
+      serverCouponsData = item.variants
+      return item.variants
+    }
+  } catch (err) { }
+  return serverCouponsData || DEFAULT_COUPONS
+}
+
+async function saveDbCoupons(coupons) {
+  serverCouponsData = coupons
+  try {
+    await prisma.product.upsert({
+      where: { slug: '_system_store_coupons' },
+      update: { variants: coupons },
+      create: {
+        slug: '_system_store_coupons',
+        title: 'System Store Coupons',
+        category: '_system',
+        description: 'System coupons for promotional discounts',
+        price: 0,
+        image: '',
+        variants: coupons,
+        inStock: false,
+      },
+    })
+  } catch (err) {
+    console.warn('Prisma save coupons warning:', err.message)
+  }
+}
+
+async function getDbReviews(slug) {
+  if (!slug) return DEFAULT_REVIEWS
+  try {
+    const item = await prisma.product.findUnique({ where: { slug: `_system_reviews_${slug}` } })
+    if (item && Array.isArray(item.variants)) {
+      serverReviewsMap.set(slug, item.variants)
+      return item.variants
+    }
+  } catch (err) { }
+  return serverReviewsMap.get(slug) || DEFAULT_REVIEWS
+}
+
+async function addDbReview(slug, reviewData) {
+  const currentList = await getDbReviews(slug)
+  const newRev = {
+    id: Date.now(),
+    name: String(reviewData.name).trim(),
+    rating: Number(reviewData.rating || 5),
+    comment: String(reviewData.comment).trim(),
+    date: 'Just now',
+  }
+  const updatedList = [newRev, ...currentList]
+  serverReviewsMap.set(slug, updatedList)
+  try {
+    await prisma.product.upsert({
+      where: { slug: `_system_reviews_${slug}` },
+      update: { variants: updatedList },
+      create: {
+        slug: `_system_reviews_${slug}`,
+        title: `System Reviews for ${slug}`,
+        category: '_system',
+        description: `Customer reviews for ${slug}`,
+        price: 0,
+        image: '',
+        variants: updatedList,
+        inStock: false,
+      },
+    })
+  } catch (err) {
+    console.warn('Prisma add review warning:', err.message)
+  }
+  return { updatedList, newRev }
+}
+
+app.get('/api/db/settings', async (req, res) => {
+  res.json(await getDbSettings())
 })
 
-app.put('/api/db/settings', authenticateRequest, requireAdmin, (req, res) => {
+app.put('/api/db/settings', authenticateRequest, requireAdmin, async (req, res) => {
   if (!req.body || typeof req.body !== 'object') {
     return res.status(400).json({ error: 'Invalid settings body.' })
   }
-  serverSettingsData = req.body
-  res.json({ success: true, settings: serverSettingsData })
+  await saveDbSettings(req.body)
+  res.json({ success: true, settings: req.body })
 })
 
-app.post('/api/db/settings', authenticateRequest, requireAdmin, (req, res) => {
+app.post('/api/db/settings', authenticateRequest, requireAdmin, async (req, res) => {
   if (!req.body || typeof req.body !== 'object') {
     return res.status(400).json({ error: 'Invalid settings body.' })
   }
-  serverSettingsData = req.body
-  res.json({ success: true, settings: serverSettingsData })
+  await saveDbSettings(req.body)
+  res.json({ success: true, settings: req.body })
 })
 
-app.get('/api/db/slides', (req, res) => {
-  res.json(serverSlidesData || DEFAULT_HERO_SLIDES)
+app.get('/api/db/slides', async (req, res) => {
+  res.json(await getDbSlides())
 })
 
-
-app.put('/api/db/slides', authenticateRequest, requireAdmin, (req, res) => {
+app.put('/api/db/slides', authenticateRequest, requireAdmin, async (req, res) => {
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ error: 'Hero slides body must be an array.' })
   }
-  serverSlidesData = req.body
-  res.json({ success: true, slides: serverSlidesData })
+  await saveDbSlides(req.body)
+  res.json({ success: true, slides: req.body })
 })
 
-app.post('/api/db/slides', authenticateRequest, requireAdmin, (req, res) => {
+app.post('/api/db/slides', authenticateRequest, requireAdmin, async (req, res) => {
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ error: 'Hero slides body must be an array.' })
   }
-  serverSlidesData = req.body
-  res.json({ success: true, slides: serverSlidesData })
+  await saveDbSlides(req.body)
+  res.json({ success: true, slides: req.body })
+})
+
+app.get('/api/db/coupons', async (req, res) => {
+  res.json(await getDbCoupons())
+})
+
+app.put('/api/db/coupons', authenticateRequest, requireAdmin, async (req, res) => {
+  if (!Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Coupons body must be an array.' })
+  }
+  await saveDbCoupons(req.body)
+  res.json({ success: true, coupons: req.body })
+})
+
+app.post('/api/db/coupons', authenticateRequest, requireAdmin, async (req, res) => {
+  if (!Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Coupons body must be an array.' })
+  }
+  await saveDbCoupons(req.body)
+  res.json({ success: true, coupons: req.body })
+})
+
+app.get('/api/db/reviews', async (req, res) => {
+  res.json(await getDbReviews(req.query.slug))
+})
+
+app.post('/api/db/reviews', async (req, res) => {
+  if (!req.body?.slug || !req.body?.name || !req.body?.comment) {
+    return res.status(400).json({ error: 'Product slug, name and comment are required.' })
+  }
+  const { updatedList, newRev } = await addDbReview(req.body.slug, req.body)
+  res.status(201).json({ success: true, reviews: updatedList, newReview: newRev })
+})
+
+app.put('/api/db/reviews', async (req, res) => {
+  const { slug, reviews } = req.body || {}
+  const targetSlug = slug || req.query.slug
+  const targetList = Array.isArray(reviews) ? reviews : (Array.isArray(req.body) ? req.body : null)
+  if (!targetSlug || !Array.isArray(targetList)) {
+    return res.status(400).json({ error: 'Product slug and reviews array are required.' })
+  }
+  serverReviewsMap.set(targetSlug, targetList)
+  try {
+    await prisma.product.upsert({
+      where: { slug: `_system_reviews_${targetSlug}` },
+      update: { variants: targetList },
+      create: {
+        slug: `_system_reviews_${targetSlug}`,
+        title: `System Reviews for ${targetSlug}`,
+        category: '_system',
+        description: `Customer reviews for ${targetSlug}`,
+        price: 0,
+        image: '',
+        variants: targetList,
+        inStock: false,
+      },
+    })
+  } catch (err) {
+    console.warn('Prisma save reviews warning:', err.message)
+  }
+  res.json({ success: true, reviews: targetList })
 })
 
 app.listen(PORT, () => {
   console.log(`🚀 Bun Maska Cafe Backend & Supabase Database server running on port ${PORT}`)
 })
+
 
