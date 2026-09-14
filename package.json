@@ -18,6 +18,8 @@
     "@reduxjs/toolkit": "^2.12.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3",
     "nodemailer": "^10.0.9",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

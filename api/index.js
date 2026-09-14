@@ -1393,6 +1393,6 @@ export default async function handler(req, res) {
     return json(res, result.status, result.body)
   } catch (error) {
     console.error('API request failed:', error)
-    return json(res, 500, { error: 'Payment service request failed' })
+    return json(res, 500, { error: error.message || 'API request failed' })
   }
 }
