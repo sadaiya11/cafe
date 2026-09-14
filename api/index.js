@@ -626,6 +626,7 @@ async function registerAuthUser(body) {
 
   const userRole = requestedRole
   const newUserId = crypto.randomUUID()
+  const now = new Date().toISOString()
   const result = await supabaseRequest('users?select=*', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
@@ -635,6 +636,8 @@ async function registerAuthUser(body) {
       email: normalizedEmail,
       password: await hashPassword(password.trim()),
       role: userRole,
+      createdAt: now,
+      updatedAt: now,
     }),
   })
 
@@ -1444,6 +1447,7 @@ async function registerStaffUser(body) {
 
   const userRole = ['ADMIN', 'STAFF'].includes(String(role).toUpperCase()) ? String(role).toUpperCase() : 'STAFF'
   const newUserId = crypto.randomUUID()
+  const now = new Date().toISOString()
 
   const result = await supabaseRequest('users?select=*', {
     method: 'POST',
@@ -1455,6 +1459,8 @@ async function registerStaffUser(body) {
       password: await hashPassword(password.trim()),
       phone: phone ? String(phone).trim() : '',
       role: userRole,
+      createdAt: now,
+      updatedAt: now,
     }),
   })
 
