@@ -31,12 +31,9 @@ export default function StaffManagerView() {
     loadUsers()
   }, [])
 
-  // Filter staff members (role === 'STAFF' or 'ADMIN')
+  // The staff directory must never expose admin accounts to staff actions.
   const staffMembers = useMemo(() => {
-    return users.filter((u) => {
-      const r = String(u.role || '').toUpperCase()
-      return r === 'STAFF' || r === 'ADMIN'
-    })
+    return users.filter((u) => String(u.role || '').toUpperCase() === 'STAFF')
   }, [users])
 
   const filteredStaff = useMemo(() => {
@@ -54,8 +51,7 @@ export default function StaffManagerView() {
     const total = staffMembers.length
     const active = staffMembers.filter((s) => s.isAllowedLogin !== false).length
     const disabled = total - active
-    const admins = staffMembers.filter((s) => String(s.role).toUpperCase() === 'ADMIN').length
-    return { total, active, disabled, admins }
+    return { total, active, disabled }
   }, [staffMembers])
 
   const handleToggleLogin = async (staff) => {
@@ -140,7 +136,7 @@ export default function StaffManagerView() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
           <div className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Total Staff</div>
           <div className="text-2xl font-black text-white mt-1">{stats.total}</div>
@@ -152,10 +148,6 @@ export default function StaffManagerView() {
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
           <div className="text-[11px] text-rose-400 uppercase tracking-wider font-semibold">Access Disabled</div>
           <div className="text-2xl font-black text-rose-400 mt-1">{stats.disabled}</div>
-        </div>
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
-          <div className="text-[11px] text-amber-400 uppercase tracking-wider font-semibold">Administrators</div>
-          <div className="text-2xl font-black text-amber-400 mt-1">{stats.admins}</div>
         </div>
       </div>
 
@@ -373,14 +365,12 @@ export default function StaffManagerView() {
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Staff Role</label>
-                <select
-                  value={newStaff.role}
-                  onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                >
-                  <option value="STAFF">Staff (POS / Order Manager)</option>
-                  <option value="ADMIN">Admin (Full Store Manager)</option>
-                </select>
+                <input
+                  type="text"
+                  value="Staff (POS / Order Manager)"
+                  readOnly
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-400 focus:outline-none"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">

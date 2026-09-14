@@ -1431,7 +1431,7 @@ async function deleteAdminUser(userId) {
 }
 
 async function registerStaffUser(body) {
-  const { name, email, password, phone, role = 'STAFF' } = body || {}
+  const { name, email, password, phone } = body || {}
   if (!name || !name.trim() || !email || !email.trim() || !password || !password.trim()) {
     return { status: 400, body: { error: 'Name, email, and password are required.' } }
   }
@@ -1445,7 +1445,7 @@ async function registerStaffUser(body) {
     return { status: 400, body: { error: 'An account with this email already exists.' } }
   }
 
-  const userRole = ['ADMIN', 'STAFF'].includes(String(role).toUpperCase()) ? String(role).toUpperCase() : 'STAFF'
+  const userRole = 'STAFF'
   const newUserId = crypto.randomUUID()
   const now = new Date().toISOString()
 
