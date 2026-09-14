@@ -10,13 +10,14 @@ import InventoryManagerView from './views/InventoryManagerView';
 import StoreSettingsView from './views/StoreSettingsView';
 import ReviewsManagerView from './views/ReviewsManagerView';
 import CustomersManagerView from './views/CustomersManagerView';
+import StaffManagerView from './views/StaffManagerView';
 import OrderDetailModal from './components/OrderDetailModal';
 import OrderNotificationToast from './components/OrderNotificationToast';
 import { fetchAdminOrders, updateOrderStatus } from './services/adminApi';
 import { playNewOrderChime } from './services/soundAlert';
 import { getLocalCatalog } from '../services/productCatalog';
 
-const VALID_TABS = ['orders', 'products', 'payments', 'analytics', 'coupons', 'inventory', 'settings', 'customers', 'reviews'];
+const VALID_TABS = ['orders', 'products', 'payments', 'analytics', 'coupons', 'inventory', 'settings', 'customers', 'staff', 'reviews'];
 
 function getInitialAdminTab() {
   try {
@@ -234,6 +235,10 @@ export default function App() {
 
           {!isStaff && activeTab === 'customers' && (
             <CustomersManagerView orders={orders} />
+          )}
+
+          {!isStaff && activeTab === 'staff' && (
+            <StaffManagerView />
           )}
 
           {!isStaff && activeTab === 'reviews' && (

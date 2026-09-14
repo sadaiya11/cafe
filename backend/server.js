@@ -206,6 +206,10 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password.' })
     }
 
+    if (user.isAllowedLogin === false || user.disabled === true || user.status === 'DISABLED') {
+      return res.status(403).json({ error: 'Your login permission has been disabled by the store administrator. Please contact your manager.' })
+    }
+
     if (!isPasswordHash(user.password)) {
       await prisma.user.update({ where: { id: user.id }, data: { password: await hashPassword(password.trim()), tokenVersion: { increment: 1 } } })
       user.tokenVersion += 1
@@ -280,13 +284,76 @@ app.get('/api/admin/users', authenticateRequest, requireAdmin, async (req, res) 
         city: true,
         zip: true,
         role: true,
+        isAllowedLogin: true,
         createdAt: true,
       },
     })
-    res.json(users)
+    const sanitized = users.map((u) => ({
+      ...u,
+      isAllowedLogin: u.isAllowedLogin !== false && u.disabled !== true && u.status !== 'DISABLED',
+    }))
+    res.json(sanitized)
   } catch (error) {
     console.error('Error fetching admin users:', error)
     res.status(500).json({ error: 'Failed to fetch registered users', details: error.message })
+  }
+})
+
+app.patch('/api/admin/users/:id', authenticateRequest, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id
+    const { isAllowedLogin, role } = req.body || {}
+    const updateData = {}
+    if (isAllowedLogin !== undefined) updateData.isAllowedLogin = Boolean(isAllowedLogin)
+    if (role !== undefined) updateData.role = String(role)
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    })
+    res.json({ success: true, user: sanitizeUser(user) })
+  } catch (error) {
+    console.error('Error updating admin user:', error)
+    res.status(500).json({ error: 'Failed to update user', details: error.message })
+  }
+})
+
+app.delete('/api/admin/users/:id', authenticateRequest, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id
+    await prisma.user.delete({ where: { id: userId } })
+    res.json({ success: true, message: 'Staff member deleted/unregistered.' })
+  } catch (error) {
+    console.error('Error deleting admin user:', error)
+    res.status(500).json({ error: 'Failed to delete user', details: error.message })
+  }
+})
+
+app.post('/api/admin/staff', authenticateRequest, requireAdmin, async (req, res) => {
+  try {
+    const { name, email, password, phone, role = 'STAFF' } = req.body || {}
+    if (!name || !name.trim() || !email || !email.trim() || !password || !password.trim()) {
+      return res.status(400).json({ error: 'Name, email, and password are required.' })
+    }
+    const normalizedEmail = email.trim().toLowerCase()
+    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+    if (existing) {
+      return res.status(400).json({ error: 'An account with this email already exists.' })
+    }
+    const userRole = ['ADMIN', 'STAFF'].includes(String(role).toUpperCase()) ? String(role).toUpperCase() : 'STAFF'
+    const newUser = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: normalizedEmail,
+        password: await hashPassword(password.trim()),
+        phone: phone ? String(phone).trim() : '',
+        role: userRole,
+        isAllowedLogin: true,
+      },
+    })
+    res.status(201).json({ success: true, user: sanitizeUser(newUser) })
+  } catch (error) {
+    console.error('Error registering staff:', error)
+    res.status(500).json({ error: 'Failed to register staff member', details: error.message })
   }
 })
 

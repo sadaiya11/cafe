@@ -665,6 +665,9 @@ async function loginAuthUser(body) {
       ? await verifyPassword(password.trim(), user.password)
       : user.password === password.trim()
     if (validPassword) {
+      if (user.isAllowedLogin === false || user.disabled === true || user.status === 'DISABLED') {
+        return { status: 403, body: { error: 'Your login permission has been disabled by the store administrator. Please contact your manager.' } }
+      }
       if (!isPasswordHash(user.password)) {
         const upgraded = await supabaseRequest(`users?id=eq.${encodeURIComponent(user.id)}`, {
           method: 'PATCH',
@@ -1308,11 +1311,72 @@ async function getAdminUsers() {
       city: u.city || '',
       zip: u.zip || '',
       role: u.role || 'CUSTOMER',
+      isAllowedLogin: u.isAllowedLogin !== false && u.disabled !== true && u.status !== 'DISABLED',
       createdAt: u.createdAt || u.created_at,
     }))
     return { status: 200, body: sanitized }
   }
   return result
+}
+
+async function updateAdminUserStatus(userId, body) {
+  if (!userId) return { status: 400, body: { error: 'User ID is required.' } }
+  const { isAllowedLogin, role } = body || {}
+  const patchData = {}
+  if (isAllowedLogin !== undefined) patchData.isAllowedLogin = Boolean(isAllowedLogin)
+  if (role !== undefined) patchData.role = String(role)
+  const result = await supabaseRequest(`users?id=eq.${encodeURIComponent(userId)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(patchData),
+  })
+  if (result.status >= 400) return result
+  const user = Array.isArray(result.body) ? result.body[0] : result.body
+  return { status: 200, body: { success: true, user: sanitizeUser(user) } }
+}
+
+async function deleteAdminUser(userId) {
+  if (!userId) return { status: 400, body: { error: 'User ID is required.' } }
+  const result = await supabaseRequest(`users?id=eq.${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' },
+  })
+  if (result.status >= 400) return result
+  return { status: 200, body: { success: true, message: 'Staff member account deleted/unregistered.' } }
+}
+
+async function registerStaffUser(body) {
+  const { name, email, password, phone, role = 'STAFF' } = body || {}
+  if (!name || !name.trim() || !email || !email.trim() || !password || !password.trim()) {
+    return { status: 400, body: { error: 'Name, email, and password are required.' } }
+  }
+  const normalizedEmail = email.trim().toLowerCase()
+  if (password.trim().length < 4) {
+    return { status: 400, body: { error: 'Password must be at least 4 characters.' } }
+  }
+
+  const existing = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}&select=*`)
+  if (existing.status < 400 && Array.isArray(existing.body) && existing.body.length > 0) {
+    return { status: 400, body: { error: 'An account with this email already exists.' } }
+  }
+
+  const userRole = ['ADMIN', 'STAFF'].includes(String(role).toUpperCase()) ? String(role).toUpperCase() : 'STAFF'
+  const result = await supabaseRequest('users?select=*', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: await hashPassword(password.trim()),
+      phone: phone ? String(phone).trim() : '',
+      role: userRole,
+      isAllowedLogin: true,
+    }),
+  })
+
+  if (result.status >= 400) return result
+  const user = Array.isArray(result.body) ? result.body[0] : result.body
+  return { status: 201, body: { success: true, user: sanitizeUser(user) } }
 }
 
 export default async function handler(req, res) {
@@ -1344,7 +1408,9 @@ export default async function handler(req, res) {
     const productSlug = route.match(/\/db\/products\/([^/]+)$/)?.[1]
     const orderStatusMatch = route.match(/\/db\/orders\/([^/]+)\/status$/)
     const orderStatusId = orderStatusMatch ? decodeURIComponent(orderStatusMatch[1]) : null
-    const isAdminUsersRoute = route.endsWith('/admin/users')
+    const adminUserIdMatch = route.match(/\/admin\/users\/([^/]+)$/)
+    const adminUserId = adminUserIdMatch ? decodeURIComponent(adminUserIdMatch[1]) : null
+    const isAdminUsersRoute = route.endsWith('/admin/users') || Boolean(adminUserId) || route.endsWith('/admin/staff')
     const isStaffRoute = (productSlug && ['PUT', 'DELETE'].includes(req.method))
       || route.endsWith('/db/product-images')
       || Boolean(orderStatusId)
@@ -1383,6 +1449,12 @@ export default async function handler(req, res) {
         ? await loginAuthUser(req.body || {})
         : route.endsWith('/admin/users') && req.method === 'GET'
           ? await getAdminUsers()
+          : route.endsWith('/admin/staff') && req.method === 'POST'
+            ? await registerStaffUser(req.body || {})
+            : adminUserId && (req.method === 'PATCH' || req.method === 'PUT')
+              ? await updateAdminUserStatus(adminUserId, req.body || {})
+              : adminUserId && req.method === 'DELETE'
+                ? await deleteAdminUser(adminUserId)
 
           : route.endsWith('/auth/forgot-password') && req.method === 'POST'
             ? await handleForgotPassword(req.body || {})

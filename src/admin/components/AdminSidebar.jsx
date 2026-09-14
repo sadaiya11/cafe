@@ -63,9 +63,16 @@ export default function AdminSidebar({
     {
       id: 'customers',
       label: 'Customers Directory',
-      icon: '👥',
+      icon: '👤',
       badge: null,
       desc: 'Names, phones, addresses & orders'
+    },
+    {
+      id: 'staff',
+      label: 'Staff Directory',
+      icon: '🛡️',
+      badge: null,
+      desc: 'Permissions & staff accounts'
     },
     {
       id: 'reviews',

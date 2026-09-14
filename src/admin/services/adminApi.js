@@ -139,10 +139,62 @@ export async function fetchAdminUsers() {
   return []
 }
 
+export async function updateUserLoginPermission(userId, isAllowedLogin) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ isAllowedLogin }),
+    })
+    if (response.ok) {
+      return await response.json()
+    }
+    const err = await response.json().catch(() => ({}))
+    return { success: false, error: err.error || 'Failed to update user login permission.' }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+}
+
+export async function deleteAdminUser(userId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/users/${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    if (response.ok) {
+      return await response.json()
+    }
+    const err = await response.json().catch(() => ({}))
+    return { success: false, error: err.error || 'Failed to delete user.' }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+}
+
+export async function registerStaffMember(staffData) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/staff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(staffData),
+    })
+    if (response.ok) {
+      return await response.json()
+    }
+    const err = await response.json().catch(() => ({}))
+    return { success: false, error: err.error || 'Failed to register staff member.' }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+}
 
 export default {
   fetchAdminOrders,
   fetchAdminUsers,
   updateOrderStatus,
+  updateUserLoginPermission,
+  deleteAdminUser,
+  registerStaffMember,
 }
 
