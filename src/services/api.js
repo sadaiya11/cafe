@@ -11,6 +11,16 @@ function authHeaders() {
   }
 }
 
+export function handleCustomerResponse(response) {
+  if (response && response.status === 401) {
+    localStorage.removeItem('bun-maska-user')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('bun_customer_unauthorized'))
+    }
+  }
+  return response
+}
+
 /** Register a new user account in database */
 export async function registerUser({ name, email, password, role = 'CUSTOMER', adminSecretKey }) {
   const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
@@ -53,11 +63,11 @@ export async function logoutUser() {
 
 /** Update user profile (name, phone, address, city, zip) in database */
 export async function updateUserProfile({ email, name, phone, address, city, zip }) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+  const response = handleCustomerResponse(await fetch(`${API_BASE_URL}/api/auth/profile`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ email, name, phone, address, city, zip }),
-  })
+  }))
 
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
@@ -152,7 +162,7 @@ export async function getOrders(userEmail = '') {
   let orders = []
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/db/orders${query}`, { headers: authHeaders() })
+    const response = handleCustomerResponse(await fetch(`${API_BASE_URL}/api/db/orders${query}`, { headers: authHeaders() }))
     if (response.ok) {
       orders = await response.json()
     }

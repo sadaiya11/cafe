@@ -16,10 +16,21 @@ import CartPage from '../pages/CartPage'
 import CheckoutPage from '../pages/CheckoutPage'
 import OrdersPage from '../pages/OrdersPage'
 import ProfilePage from '../pages/ProfilePage'
+import { useDispatch } from 'react-redux'
+import { logout } from '../store/authSlice'
 import { useCart } from '../context/useCart'
 
 export default function PublicLayout() {
   const { itemCount } = useCart()
+  const dispatch = useDispatch()
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      dispatch(logout())
+    }
+    window.addEventListener('bun_customer_unauthorized', handleUnauthorized)
+    return () => window.removeEventListener('bun_customer_unauthorized', handleUnauthorized)
+  }, [dispatch])
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">

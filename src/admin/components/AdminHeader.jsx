@@ -89,15 +89,7 @@ export default function AdminHeader({
             </button>
           )}
 
-          {/* Manual Sync Button */}
-          <button
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all disabled:opacity-50 shadow-md shadow-amber-500/10"
-          >
-            <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
-            <span>{isRefreshing ? 'Syncing...' : 'Sync Now'}</span>
-          </button>
+
 
           <button
             onClick={() => {

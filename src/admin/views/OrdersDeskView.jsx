@@ -4,7 +4,9 @@ export default function OrdersDeskView({
   orders, 
   onUpdateStatus, 
   onSelectOrder, 
-  searchTerm 
+  searchTerm,
+  onRefresh,
+  isRefreshing,
 }) {
   const [statusFilter, setStatusFilter] = useState('ALL');
 
@@ -140,7 +142,20 @@ export default function OrdersDeskView({
       {/* Header and Filter Tabs */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight">Order Processing Desk</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-white tracking-tight">Order Processing Desk</h2>
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="flex items-center space-x-1.5 px-3 py-1 rounded-xl text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all disabled:opacity-50 shadow-md shadow-amber-500/10"
+              >
+                <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
+                <span>{isRefreshing ? 'Syncing Orders...' : 'Sync Orders'}</span>
+              </button>
+            )}
+          </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Monitor real-time incoming orders, update kitchen & delivery status, and view customer locations.
           </p>

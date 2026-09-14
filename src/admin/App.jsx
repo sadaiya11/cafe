@@ -203,6 +203,8 @@ export default function App() {
               onUpdateStatus={handleUpdateStatus}
               onSelectOrder={setSelectedOrder}
               searchTerm={searchTerm}
+              onRefresh={loadOrders}
+              isRefreshing={isRefreshing}
             />
           )}
 

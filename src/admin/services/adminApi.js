@@ -1,3 +1,5 @@
+import { handleStaffResponse } from '../../services/staffAuthService'
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
 const LOCAL_STORAGE_KEY = 'bun_maska_user_orders'
@@ -71,7 +73,8 @@ export async function fetchAdminOrders() {
   let combined = []
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/db/orders`, { headers: authHeaders() })
+    const rawRes = await fetch(`${API_BASE_URL}/api/db/orders`, { headers: authHeaders() })
+    const response = handleStaffResponse(rawRes)
     if (response.ok) {
       const apiOrders = await response.json()
       const apiOrderIds = new Set((apiOrders || []).map((o) => o.orderId || o.id))
@@ -129,7 +132,8 @@ export async function updateOrderStatus(primaryId, newStatus, altId = null) {
 
 export async function fetchAdminUsers() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/admin/users`, { headers: authHeaders() })
+    const rawRes = await fetch(`${API_BASE_URL}/api/admin/users`, { headers: authHeaders() })
+    const response = handleStaffResponse(rawRes)
     if (response.ok) {
       return await response.json()
     }
@@ -141,11 +145,12 @@ export async function fetchAdminUsers() {
 
 export async function updateUserLoginPermission(userId, isAllowedLogin) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${encodeURIComponent(userId)}`, {
+    const rawRes = await fetch(`${API_BASE_URL}/api/admin/users/${encodeURIComponent(userId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ isAllowedLogin }),
     })
+    const response = handleStaffResponse(rawRes)
     if (response.ok) {
       return await response.json()
     }
@@ -158,10 +163,11 @@ export async function updateUserLoginPermission(userId, isAllowedLogin) {
 
 export async function deleteAdminUser(userId) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/admin/users/${encodeURIComponent(userId)}`, {
+    const rawRes = await fetch(`${API_BASE_URL}/api/admin/users/${encodeURIComponent(userId)}`, {
       method: 'DELETE',
       headers: authHeaders(),
     })
+    const response = handleStaffResponse(rawRes)
     if (response.ok) {
       return await response.json()
     }
@@ -174,11 +180,12 @@ export async function deleteAdminUser(userId) {
 
 export async function registerStaffMember(staffData) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/admin/staff`, {
+    const rawRes = await fetch(`${API_BASE_URL}/api/admin/staff`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(staffData),
     })
+    const response = handleStaffResponse(rawRes)
     if (response.ok) {
       return await response.json()
     }
