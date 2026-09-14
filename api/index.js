@@ -164,8 +164,6 @@ async function saveProduct(slug, body) {
     inStock: inStock !== false,
   }
 
-  serverProductCache.set(slug, itemToSave)
-
   const result = await supabaseRequest('products?on_conflict=slug', {
     method: 'POST',
     headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
@@ -173,10 +171,11 @@ async function saveProduct(slug, body) {
   })
 
   if (result.status >= 400) {
-    console.warn('Supabase DB save notice, using server cached product:', result.body)
-    return { status: 200, body: itemToSave }
+    console.error('Supabase DB product save failed:', result.body)
+    return { status: result.status, body: { error: 'Product was not saved to the database.', details: result.body } }
   }
 
+  serverProductCache.set(slug, itemToSave)
   return { status: result.status, body: Array.isArray(result.body) ? result.body[0] : result.body }
 }
 

@@ -1,155 +1,103 @@
 import fallbackProducts from '../data/products.json'
-import { getProducts, saveProduct, deleteProduct, uploadProductImage } from './api'
+import { getProducts, saveProduct, createProduct, deleteProduct, uploadProductImage } from './api'
 
-const STORAGE_KEY = 'bun_maska_product_catalog_v4'
-const DELETED_KEY = 'bun_maska_deleted_slugs_v4'
+const STORAGE_KEY = 'bun_maska_product_catalog_v5'
 
-function getDeletedSlugs() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(DELETED_KEY) || '[]')
-    return Array.isArray(stored) ? new Set(stored) : new Set()
-  } catch {
-    return new Set()
-  }
-}
+let memoryCatalog = []
 
-const cloneProducts = (products) => products.map((product) => ({
-  ...product,
-  variants: (product.variants || []).map((variant) => ({ ...variant, gallery: [...(variant.gallery || [])] })),
-}))
+const normalizeProduct = (p) => ({
+  ...p,
+  title: p.title || p.name,
+  name: p.title || p.name,
+  description: p.description !== undefined && p.description !== null ? String(p.description) : '',
+  category: p.category || 'Bun Maska',
+  tag: p.tag || '',
+  price: Number(p.price ?? p.variants?.[0]?.price ?? 0),
+  image: p.image || p.variants?.[0]?.image || '',
+  inStock: p.inStock !== false,
+  variants: Array.isArray(p.variants) && p.variants.length
+    ? p.variants
+    : [{ size: 'standard', label: 'Standard', price: Number(p.price || 0), image: p.image || '' }],
+})
 
 export function mergeCatalogProducts(savedProducts = []) {
-  const deletedSlugs = getDeletedSlugs()
-  const savedBySlug = new Map(savedProducts.map((product) => [product.slug, product]))
-
-  const fallback = cloneProducts(fallbackProducts)
-
-  // Custom products created by user not in fallback catalog
-  const fallbackSlugs = new Set(fallback.map((f) => f.slug))
-  const customSaved = savedProducts.filter((s) => s && s.slug && !fallbackSlugs.has(s.slug) && !deletedSlugs.has(s.slug))
-
-  const mergedFallback = fallback
-    .filter((product) => !deletedSlugs.has(product.slug))
-    .map((product) => {
-      const saved = savedBySlug.get(product.slug)
-      if (!saved) return { ...product, inStock: product.inStock !== false }
-
-      const savedPrice = Number(saved.price ?? saved.variants?.[0]?.price)
-      const hasSavedPrice = Number.isFinite(savedPrice) && savedPrice >= 0
-
-      let variants = Array.isArray(saved.variants) && saved.variants.length
-        ? saved.variants
-        : product.variants
-
-      if (hasSavedPrice) {
-        variants = variants.map((v, index) => (index === 0 ? { ...v, price: savedPrice } : v))
-      }
-
-      const finalPrice = hasSavedPrice ? savedPrice : Number(variants[0]?.price || product.price)
-
-      return {
-        ...product,
-        ...saved,
-        price: finalPrice,
-        title: saved.title || product.title,
-        description: saved.description !== undefined && saved.description !== null ? saved.description : product.description,
-        image: saved.image || product.image,
-        variants,
-        inStock: saved.inStock !== false,
-      }
-    })
-
-  const mergedCustom = customSaved.map((saved) => {
-    const savedPrice = Number(saved.price ?? (saved.variants?.[0]?.price || 0))
-    const variants = Array.isArray(saved.variants) && saved.variants.length
-      ? saved.variants.map((v, index) => (index === 0 ? { ...v, price: savedPrice } : v))
-      : [{ size: 'standard', label: 'Standard', price: savedPrice, image: saved.image || '' }]
-
-    return {
-      ...saved,
-      price: savedPrice,
-      variants,
-      inStock: saved.inStock !== false,
-    }
-  })
-
-  return [...mergedFallback, ...mergedCustom]
-}
-
-function getStoredProducts() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-    return Array.isArray(stored) ? stored : []
-  } catch {
-    return []
+  if (Array.isArray(savedProducts) && savedProducts.length > 0) {
+    return savedProducts.map(normalizeProduct)
   }
+  return fallbackProducts.map(normalizeProduct)
 }
 
 function storeProducts(products) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(products))
+  try {
+    memoryCatalog = products
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(products))
+  } catch (e) {
+    console.warn('LocalStorage save notice:', e)
+  }
 }
 
 export function getLocalCatalog() {
-  return mergeCatalogProducts(getStoredProducts())
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(normalizeProduct)
+    }
+  } catch (error) {
+    console.warn('LocalStorage read notice:', error.message)
+  }
+  return memoryCatalog.length ? memoryCatalog : fallbackProducts.map(normalizeProduct)
 }
 
 export async function loadCatalog() {
-  const localProducts = getStoredProducts()
   try {
     const remoteProducts = await getProducts()
     if (Array.isArray(remoteProducts) && remoteProducts.length > 0) {
-      const remoteSlugs = new Set(remoteProducts.map((product) => product.slug))
-      const combined = [...remoteProducts, ...localProducts.filter((product) => !remoteSlugs.has(product.slug))]
-      const merged = mergeCatalogProducts(combined)
-      storeProducts(merged)
-      return merged
+      const normalized = remoteProducts.map(normalizeProduct)
+      storeProducts(normalized)
+      return normalized
     }
-    return mergeCatalogProducts(localProducts)
   } catch (error) {
-    console.warn('Product API unavailable; showing local catalog:', error.message)
-    return mergeCatalogProducts(localProducts)
+    console.warn('Product API unavailable; using local catalog:', error.message)
   }
+
+  return getLocalCatalog()
 }
 
 export async function updateCatalogProduct(product) {
   const targetPrice = Number(product.price ?? product.variants?.[0]?.price ?? 0)
   const variants = Array.isArray(product.variants) && product.variants.length
-    ? product.variants.map((v, i) => (i === 0 ? { ...v, price: targetPrice } : v))
+    ? product.variants.map((v, i) => (i === 0 ? { ...v, price: targetPrice, image: product.image || v.image } : v))
     : [{ size: 'standard', label: 'Standard', price: targetPrice, image: product.image || '' }]
 
-  const normalized = {
+  const normalized = normalizeProduct({
     ...product,
-    inStock: product.inStock !== false,
     price: targetPrice,
     image: variants[0]?.image || product.image || '',
     variants,
+    updatedAt: Date.now(),
+  })
+
+  // Update local memory cache immediately
+  const current = getLocalCatalog().filter((item) => item.slug !== normalized.slug)
+  const nextLocal = [...current, normalized]
+  storeProducts(nextLocal)
+
+  const saved = await saveProduct(normalized)
+  if (saved?.slug || saved?.title) {
+    const savedItem = normalizeProduct({ ...normalized, ...(saved || {}) })
+    await loadCatalog()
+    window.dispatchEvent(new Event('bun_catalog_updated'))
+    return savedItem
   }
-
-  const stored = getStoredProducts().filter((item) => item.slug !== normalized.slug)
-  storeProducts([...stored, normalized])
-
-  try {
-    const saved = await saveProduct(normalized)
-    if (saved?.slug || saved?.title) {
-      const savedItem = { ...normalized, ...(saved || {}) }
-      const latestStored = getStoredProducts().filter((item) => item.slug !== savedItem.slug)
-      storeProducts([...latestStored, savedItem])
-      window.dispatchEvent(new Event('bun_catalog_updated'))
-      return mergeCatalogProducts([savedItem]).find((item) => item.slug === product.slug) || savedItem
-    }
-  } catch (err) {
-    console.warn('API save notice:', err.message)
-  }
-
-  window.dispatchEvent(new Event('bun_catalog_updated'))
-  return mergeCatalogProducts([normalized]).find((item) => item.slug === product.slug) || normalized
+  throw new Error('Product save returned no product data.')
 }
 
 export async function addNewCatalogProduct(productData) {
   const slug = (productData.title || 'item').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4)
   const price = Number(productData.price || 0)
-  
-  const newProduct = {
+
+  const newProduct = normalizeProduct({
     id: slug,
     slug,
     title: productData.title,
@@ -163,44 +111,36 @@ export async function addNewCatalogProduct(productData) {
       {
         id: `${slug}-std`,
         name: 'Standard',
+        label: 'Standard',
         price: price,
         image: productData.image || '',
         gallery: productData.image ? [productData.image] : []
       }
     ]
-  }
+  })
 
-  const stored = getStoredProducts().filter((item) => item.slug !== slug)
-  storeProducts([...stored, newProduct])
+  // Update local memory cache immediately
+  const current = getLocalCatalog().filter((item) => item.slug !== slug)
+  storeProducts([...current, newProduct])
 
-  try {
-    await saveProduct(newProduct)
-  } catch (e) {
-    console.warn('API save product notice:', e.message)
-  }
-
-  return newProduct
+  const created = await createProduct(newProduct)
+  const resultItem = created && (created.slug || created.title) ? normalizeProduct({ ...newProduct, ...created }) : newProduct
+  await loadCatalog()
+  window.dispatchEvent(new Event('bun_catalog_updated'))
+  return resultItem
 }
 
 export async function deleteCatalogProduct(slug) {
-  try {
-    const deletedKey = DELETED_KEY
-    const currentDeleted = JSON.parse(localStorage.getItem(deletedKey) || '[]')
-    if (!currentDeleted.includes(slug)) {
-      localStorage.setItem(deletedKey, JSON.stringify([...currentDeleted, slug]))
-    }
-  } catch (e) {
-    console.warn('Error marking deleted slug:', e)
-  }
-
-  const stored = getStoredProducts().filter((item) => item.slug !== slug)
-  storeProducts(stored)
-
   try {
     await deleteProduct(slug)
   } catch (e) {
     console.warn('API delete product notice:', e.message)
   }
+
+  const current = getLocalCatalog().filter((item) => item.slug !== slug)
+  storeProducts(current)
+  await loadCatalog()
+  window.dispatchEvent(new Event('bun_catalog_updated'))
 }
 
 export async function uploadCatalogProductImage(slug, file) {

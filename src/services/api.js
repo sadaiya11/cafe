@@ -226,6 +226,22 @@ export async function saveProduct(product) {
   return response.json()
 }
 
+/** Create a new product in the database */
+export async function createProduct(product) {
+  const response = await fetch(`${API_BASE_URL}/api/db/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(product),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.error || 'Unable to create product in database.')
+  }
+
+  return response.json()
+}
+
 /** Delete a product from the database */
 export async function deleteProduct(slug) {
   const response = await fetch(`${API_BASE_URL}/api/db/products/${encodeURIComponent(slug)}`, {
@@ -284,6 +300,7 @@ export default {
   getOrders,
   getProducts,
   saveProduct,
+  createProduct,
   deleteProduct,
   uploadProductImage,
 }
