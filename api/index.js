@@ -1189,7 +1189,9 @@ async function saveCoupons(body) {
 }
 
 async function getProductReviews(slug) {
-  if (!slug) return { status: 400, body: { error: 'Product slug is required.' } }
+  if (!slug) {
+    return getAllProductReviews()
+  }
   const result = await supabaseRequest(`products?slug=eq._system_reviews_${encodeURIComponent(slug)}&select=*`)
   if (result.status === 200 && Array.isArray(result.body) && result.body.length > 0) {
     const val = result.body[0].variants
@@ -1202,27 +1204,52 @@ async function getProductReviews(slug) {
   return { status: 200, body: cached || DEFAULT_REVIEWS }
 }
 
+async function getAllProductReviews() {
+  const result = await supabaseRequest('products?select=*')
+  const allReviews = []
+  if (result.status === 200 && Array.isArray(result.body)) {
+    const reviewItems = result.body.filter((item) => item.slug && item.slug.startsWith('_system_reviews_'))
+    for (const item of reviewItems) {
+      const pSlug = item.slug.replace('_system_reviews_', '')
+      const revs = Array.isArray(item.variants) ? item.variants : []
+      revs.forEach((r) => allReviews.push({ ...r, productSlug: r.productSlug || pSlug }))
+    }
+  }
+  for (const [pSlug, revs] of serverReviewsCache.entries()) {
+    if (Array.isArray(revs)) {
+      revs.forEach((r) => {
+        if (!allReviews.some((existing) => existing.id === r.id)) {
+          allReviews.push({ ...r, productSlug: r.productSlug || pSlug })
+        }
+      })
+    }
+  }
+  return { status: 200, body: allReviews }
+}
+
 async function addProductReview(slug, reviewData) {
-  if (!slug || !reviewData?.name || !reviewData?.comment) {
+  const targetSlug = slug || reviewData?.slug
+  if (!targetSlug || !reviewData?.name || !reviewData?.comment) {
     return { status: 400, body: { error: 'Product slug, name and comment are required.' } }
   }
-  const { body: existing } = await getProductReviews(slug)
+  const { body: existing } = await getProductReviews(targetSlug)
   const currentList = Array.isArray(existing) ? existing : DEFAULT_REVIEWS
   const newRev = {
     id: Date.now(),
     name: String(reviewData.name).trim(),
     rating: Number(reviewData.rating || 5),
     comment: String(reviewData.comment).trim(),
-    date: 'Just now',
+    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    productSlug: targetSlug,
   }
   const updatedList = [newRev, ...currentList]
-  serverReviewsCache.set(slug, updatedList)
+  serverReviewsCache.set(targetSlug, updatedList)
 
   const itemToSave = {
-    slug: `_system_reviews_${slug}`,
-    title: `System Reviews for ${slug}`,
+    slug: `_system_reviews_${targetSlug}`,
+    title: `System Reviews for ${targetSlug}`,
     category: '_system',
-    description: `Customer reviews for ${slug}`,
+    description: `Customer reviews for ${targetSlug}`,
     price: 0,
     image: '',
     variants: updatedList,
@@ -1241,16 +1268,17 @@ async function addProductReview(slug, reviewData) {
 }
 
 async function saveProductReviews(slug, reviewsList) {
-  if (!slug || !Array.isArray(reviewsList)) {
+  const targetSlug = slug
+  if (!targetSlug || !Array.isArray(reviewsList)) {
     return { status: 400, body: { error: 'Product slug and reviews array are required.' } }
   }
-  serverReviewsCache.set(slug, reviewsList)
+  serverReviewsCache.set(targetSlug, reviewsList)
 
   const itemToSave = {
-    slug: `_system_reviews_${slug}`,
-    title: `System Reviews for ${slug}`,
+    slug: `_system_reviews_${targetSlug}`,
+    title: `System Reviews for ${targetSlug}`,
     category: '_system',
-    description: `Customer reviews for ${slug}`,
+    description: `Customer reviews for ${targetSlug}`,
     price: 0,
     image: '',
     variants: reviewsList,
@@ -1295,6 +1323,22 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end()
 
   try {
+    let body = req.body
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body)
+      } catch (e) {
+        body = {}
+      }
+    } else if (Buffer.isBuffer(body)) {
+      try {
+        body = JSON.parse(body.toString('utf-8'))
+      } catch (e) {
+        body = {}
+      }
+    }
+    req.body = body || {}
+
     const requestUrl = new URL(req.url || '/', `https://${req.headers.host || 'localhost'}`)
     const route = requestUrl.pathname
     const productSlug = route.match(/\/db\/products\/([^/]+)$/)?.[1]

@@ -1257,8 +1257,33 @@ async function saveDbCoupons(coupons) {
   }
 }
 
+async function getAllDbReviews() {
+  const allReviews = []
+  try {
+    const items = await prisma.product.findMany({
+      where: { slug: { startsWith: '_system_reviews_' } }
+    })
+    for (const item of items) {
+      const pSlug = item.slug.replace('_system_reviews_', '')
+      const revs = Array.isArray(item.variants) ? item.variants : []
+      revs.forEach((r) => allReviews.push({ ...r, productSlug: r.productSlug || pSlug }))
+    }
+  } catch (err) {}
+
+  for (const [pSlug, revs] of serverReviewsMap.entries()) {
+    if (Array.isArray(revs)) {
+      revs.forEach((r) => {
+        if (!allReviews.some((existing) => existing.id === r.id)) {
+          allReviews.push({ ...r, productSlug: r.productSlug || pSlug })
+        }
+      })
+    }
+  }
+  return allReviews
+}
+
 async function getDbReviews(slug) {
-  if (!slug) return DEFAULT_REVIEWS
+  if (!slug) return getAllDbReviews()
   try {
     const item = await prisma.product.findUnique({ where: { slug: `_system_reviews_${slug}` } })
     if (item && Array.isArray(item.variants)) {
@@ -1270,25 +1295,27 @@ async function getDbReviews(slug) {
 }
 
 async function addDbReview(slug, reviewData) {
-  const currentList = await getDbReviews(slug)
+  const targetSlug = slug || reviewData?.slug
+  const currentList = await getDbReviews(targetSlug)
   const newRev = {
     id: Date.now(),
     name: String(reviewData.name).trim(),
     rating: Number(reviewData.rating || 5),
     comment: String(reviewData.comment).trim(),
-    date: 'Just now',
+    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    productSlug: targetSlug,
   }
-  const updatedList = [newRev, ...currentList]
-  serverReviewsMap.set(slug, updatedList)
+  const updatedList = [newRev, ...(Array.isArray(currentList) ? currentList : [])]
+  serverReviewsMap.set(targetSlug, updatedList)
   try {
     await prisma.product.upsert({
-      where: { slug: `_system_reviews_${slug}` },
+      where: { slug: `_system_reviews_${targetSlug}` },
       update: { variants: updatedList },
       create: {
-        slug: `_system_reviews_${slug}`,
-        title: `System Reviews for ${slug}`,
+        slug: `_system_reviews_${targetSlug}`,
+        title: `System Reviews for ${targetSlug}`,
         category: '_system',
-        description: `Customer reviews for ${slug}`,
+        description: `Customer reviews for ${targetSlug}`,
         price: 0,
         image: '',
         variants: updatedList,

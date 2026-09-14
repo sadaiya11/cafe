@@ -40,9 +40,9 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (!slug) return
     fetch(`${API_BASE_URL}/api/db/reviews?slug=${encodeURIComponent(slug)}`)
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) setReviews(data)
+        if (Array.isArray(data)) setReviews(data)
       })
       .catch((err) => console.warn('Failed to fetch product reviews from DB:', err.message))
   }, [slug])
@@ -79,8 +79,15 @@ export default function ProductDetailPage() {
         const data = await res.json()
         if (Array.isArray(data.reviews)) {
           setReviews(data.reviews)
+          setReviewerName('')
+          setReviewComment('')
+          setNotice('Thank you! Your review has been published.')
+          return
         }
       }
+      const errData = await res.json().catch(() => ({}))
+      console.warn('DB reviews POST returned status:', res.status, errData)
+      setNotice(errData.error || 'Failed to submit review. Please try again.')
     } catch (err) {
       console.warn('Failed to post review to DB API:', err.message)
       const newRev = {
@@ -88,14 +95,13 @@ export default function ProductDetailPage() {
         name: reviewerName.trim(),
         rating: userRating,
         comment: reviewComment.trim(),
-        date: 'Just now',
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       }
       setReviews((prev) => [newRev, ...prev])
+      setReviewerName('')
+      setReviewComment('')
+      setNotice('Thank you! Your review has been published (offline mode).')
     }
-
-    setReviewerName('')
-    setReviewComment('')
-    setNotice('Thank you! Your review has been published.')
   }
 
   const avgRating = reviews.length > 0 

@@ -199,25 +199,10 @@ export function getAllReviews() {
 
 export async function fetchAllReviewsFromServer() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/db/products`)
+    const res = await fetch(`${API_BASE_URL}/api/db/reviews`)
     if (res.ok) {
-      const products = await res.json()
-      const allReviews = []
-      for (const p of products) {
-        if (!p.slug) continue
-        try {
-          const revRes = await fetch(`${API_BASE_URL}/api/db/reviews?slug=${encodeURIComponent(p.slug)}`)
-          if (revRes.ok) {
-            const revs = await revRes.json()
-            if (Array.isArray(revs)) {
-              revs.forEach((r) => allReviews.push({ ...r, productSlug: p.slug }))
-            }
-          }
-        } catch (e) {
-          console.warn('DB reviews fetch notice:', e.message)
-        }
-      }
-      return allReviews
+      const data = await res.json()
+      if (Array.isArray(data)) return data
     }
   } catch (err) {
     console.warn('Failed to fetch reviews from server DB:', err)
