@@ -67,16 +67,36 @@ function hasStaffRole(user) {
 }
 
 async function getOrders(query, authUser) {
+  if (!authUser) {
+    return { status: 401, body: { error: 'Authentication required to view orders.' } }
+  }
+
+  const isStaff = hasStaffRole(authUser)
+
+  // RULE 4: Proof of identity is ALWAYS authUser (from verified JWT), NEVER customer-supplied query parameters!
+  // RULE 1: Non-admin customer can ONLY fetch their own orders.
+  // RULE 2 & 3: Admins can view all orders or search by customer email after server-side authorization.
+
+  let searchEmail = null
+  if (isStaff) {
+    // Admin role can search/filter orders by customer email query parameter
+    searchEmail = query.get('email') || null
+  } else {
+    // Non-admin customer: strictly force identity from verified token!
+    searchEmail = authUser.email
+  }
+
   const params = new URLSearchParams({ select: '*,order_items(*)', order: 'createdAt.desc' })
-  const email = query.get('email')
-  if (email) params.set('customer->>email', `eq.${email}`)
+  if (searchEmail) {
+    params.set('customer->>email', `eq.${searchEmail}`)
+  }
 
   let result = await supabaseRequest(`orders?${params.toString()}`)
 
   // Fallback if relationship 'order_items' is not found in schema cache
   if (result.status >= 400) {
     const fallbackParams = new URLSearchParams({ select: '*', order: 'createdAt.desc' })
-    if (email) fallbackParams.set('customer->>email', `eq.${email}`)
+    if (searchEmail) fallbackParams.set('customer->>email', `eq.${searchEmail}`)
     result = await supabaseRequest(`orders?${fallbackParams.toString()}`)
   }
 
@@ -85,9 +105,15 @@ async function getOrders(query, authUser) {
       ...order,
       items: order.items || order.order_items || []
     }))
-    if (!hasStaffRole(authUser)) {
-      return { status: 200, body: mapped.filter((order) => order.customer?.email === authUser.email) }
+
+    if (!isStaff) {
+      const customerOrders = mapped.filter((order) => {
+        const orderEmail = (order.customer && typeof order.customer === 'object' ? order.customer.email : '') || ''
+        return orderEmail.toLowerCase() === authUser.email.toLowerCase()
+      })
+      return { status: 200, body: customerOrders }
     }
+
     return { status: 200, body: mapped }
   }
 
@@ -482,12 +508,13 @@ async function loginAuthUser(body) {
 }
 
 async function updateUserProfile(body, authUser) {
-  const { email, name, phone, address, city, zip } = body || {}
-  if (!email || !email.trim()) {
-    return { status: 400, body: { error: 'User email is required to update profile.' } }
+  if (!authUser || !authUser.email) {
+    return { status: 401, body: { error: 'Authentication required to update profile.' } }
   }
-  const normalizedEmail = email.trim().toLowerCase()
-  if (authUser?.email !== normalizedEmail) return { status: 403, body: { error: 'You can only update your own profile.' } }
+
+  // RULE 4: Proof of identity is strictly authUser (from verified JWT), NEVER customer-supplied body email!
+  const normalizedEmail = authUser.email.trim().toLowerCase()
+  const { name, phone, address, city, zip } = body || {}
 
   const updateFields = {}
   if (name !== undefined) updateFields.name = String(name).trim()

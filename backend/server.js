@@ -233,13 +233,10 @@ app.post('/api/auth/logout', authenticateRequest, async (req, res) => {
 // Route: PUT /api/auth/profile - Update user profile (Name, Phone, Address, City, Zip)
 app.put('/api/auth/profile', authenticateRequest, async (req, res) => {
   try {
-    const { email, name, phone, address, city, zip } = req.body
-    if (!email || !email.trim()) {
-      return res.status(400).json({ error: 'Email address is required to update profile.' })
-    }
+    // RULE 4: Proof of identity is strictly req.auth.user (from verified JWT), NEVER customer-supplied body email!
+    const normalizedEmail = req.auth.user.email.trim().toLowerCase()
+    const { name, phone, address, city, zip } = req.body
 
-    const normalizedEmail = email.trim().toLowerCase()
-    if (req.auth.user.email !== normalizedEmail) return res.status(403).json({ error: 'You can only update your own profile.' })
     const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } })
     if (!existingUser) {
       return res.status(404).json({ error: 'User account not found.' })
@@ -718,18 +715,31 @@ app.post('/api/db/orders', async (req, res) => {
 // Route: GET /api/db/orders - Fetch Orders from Supabase DB via Prisma
 app.get('/api/db/orders', authenticateRequest, async (req, res) => {
   try {
-    const { email } = req.query
+    const isStaff = ADMIN_ROLES.has(req.auth.user.role)
+    const userEmail = req.auth.user.email.toLowerCase()
+
+    // RULE 4: Proof of identity is strictly req.auth.user (from verified JWT), NEVER customer-supplied query parameter!
+    // RULE 1: A customer can ONLY view their own orders.
+    // RULE 2 & 3: An admin can view all orders or search by customer email after server-side authorization.
+
     const orders = await prisma.order.findMany({
       include: { items: true },
       orderBy: { createdAt: 'desc' },
     })
 
-    if (!ADMIN_ROLES.has(req.auth.user.role) && email !== req.auth.user.email) {
-      return res.status(403).json({ error: 'You can only view your own orders.' })
+    if (!isStaff) {
+      // Non-admin customer: strictly filter by verified token email!
+      const customerOrders = orders.filter((o) =>
+        o.customer && typeof o.customer === 'object' && String(o.customer.email).toLowerCase() === userEmail
+      )
+      return res.json(customerOrders)
     }
-    const result = ADMIN_ROLES.has(req.auth.user.role)
-      ? (email ? orders.filter((o) => o.customer && typeof o.customer === 'object' && o.customer.email === email) : orders)
-      : orders.filter((o) => o.customer && typeof o.customer === 'object' && o.customer.email === req.auth.user.email)
+
+    // Admin staff: can view all orders or filter by customer search query
+    const { email: searchEmail } = req.query
+    const result = searchEmail
+      ? orders.filter((o) => o.customer && typeof o.customer === 'object' && String(o.customer.email).toLowerCase() === String(searchEmail).toLowerCase())
+      : orders
 
     res.json(result)
   } catch (error) {

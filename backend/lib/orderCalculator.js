@@ -1,4 +1,8 @@
-import productsData from '../../src/data/products.json' assert { type: 'json' }
+import fs from 'node:fs'
+
+const productsData = JSON.parse(
+  fs.readFileSync(new URL('../../src/data/products.json', import.meta.url), 'utf-8')
+)
 
 export const SERVER_COUPONS = [
   { code: 'BUN20', type: 'PERCENT', value: 20, minOrder: 150 },
