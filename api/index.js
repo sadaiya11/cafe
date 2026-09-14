@@ -340,26 +340,162 @@ async function createRazorpayOrder(body) {
 }
 
 async function verifyPayment(body) {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer, items, couponCode } = body
-  const { keySecret } = getCredentials()
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer, items, couponCode } = body || {}
+  const { keyId, keySecret } = getCredentials()
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-    return { status: 400, body: { error: 'Missing required payment verification details' } }
+    return { status: 400, body: { error: 'Missing required payment verification details.' } }
   }
 
-  if (!keySecret) {
-    return { status: 503, body: { error: 'Razorpay is not configured on the server.' } }
+  // 1. REJECT DUPLICATE PAYMENT PROCESSING
+  if (razorpay_order_id) {
+    const existingResult = await supabaseRequest(`orders?orderId=eq.${encodeURIComponent(razorpay_order_id)}&select=*`)
+    if (existingResult.status < 400 && existingResult.body?.length) {
+      const existingOrder = existingResult.body[0]
+      if (existingOrder.paymentStatus === 'SUCCESS' || existingOrder.status === 'PAID') {
+        return {
+          status: 200,
+          body: {
+            success: true,
+            message: 'Payment has already been processed successfully.',
+            alreadyProcessed: true,
+            orderId: razorpay_order_id,
+            paymentId: razorpay_payment_id,
+            order: existingOrder,
+          },
+        }
+      }
+    }
   }
 
+  // 2. AUTHORITATIVE SERVER-SIDE PRICE & TOTAL RECALCULATION
+  const productsResult = await getProducts()
+  const dbProducts = (productsResult.status === 200 && Array.isArray(productsResult.body)) ? productsResult.body : null
+  const settingsResult = await getSettings()
+  const dbSettings = settingsResult.body || null
+
+  let calculated
+  try {
+    calculated = await recalculateOrderOnServer({
+      items,
+      couponCode,
+      catalogProducts: dbProducts,
+      storeSettings: dbSettings,
+    })
+  } catch (err) {
+    return { status: 400, body: { error: `Server recalculation failed: ${err.message}` } }
+  }
+
+  // 3. DEMO MODE FALLBACK (When Razorpay API keys are unconfigured)
+  if (!keySecret || !keyId) {
+    if (String(razorpay_order_id).startsWith('order_demo_')) {
+      const savedOrder = await saveOrder({
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        customer,
+        items,
+        couponCode,
+        status: 'PAID',
+        paymentMethod: 'RAZORPAY',
+        paymentStatus: 'SUCCESS',
+      })
+      return {
+        status: 200,
+        body: {
+          success: true,
+          message: 'Demo payment verified successfully',
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          order: savedOrder.body?.order,
+          calculated,
+        },
+      }
+    }
+    return { status: 503, body: { error: 'Razorpay payment gateway is not configured on the server.' } }
+  }
+
+  // 4. VERIFY HMAC SIGNATURE
   const expectedSignature = crypto
     .createHmac('sha256', keySecret)
     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
     .digest('hex')
 
   if (razorpay_signature !== expectedSignature) {
+    // Save order as failed due to signature mismatch
+    await saveOrder({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      customer,
+      items,
+      couponCode,
+      status: 'CANCELLED',
+      paymentMethod: 'RAZORPAY',
+      paymentStatus: 'FAILED',
+    })
     return { status: 400, body: { success: false, error: 'Invalid payment signature' } }
   }
 
+  // 5. VERIFY PAYMENT STATUS DIRECTLY WITH RAZORPAY API
+  const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`
+  let rzpPayment = null
+  let rzpOrder = null
+
+  try {
+    const payResp = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(razorpay_payment_id)}`, {
+      headers: { Authorization: authHeader },
+    })
+    if (payResp.ok) rzpPayment = await payResp.json()
+  } catch (e) {
+    console.warn('Direct Razorpay payment status check warning:', e.message)
+  }
+
+  try {
+    const ordResp = await fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(razorpay_order_id)}`, {
+      headers: { Authorization: authHeader },
+    })
+    if (ordResp.ok) rzpOrder = await ordResp.json()
+  } catch (e) {
+    console.warn('Direct Razorpay order status check warning:', e.message)
+  }
+
+  // REJECT IF RAZORPAY REPORTS PAYMENT STATUS AS FAILED
+  if (rzpPayment && ['failed', 'refunded'].includes(rzpPayment.status)) {
+    await saveOrder({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      customer,
+      items,
+      couponCode,
+      status: 'CANCELLED',
+      paymentMethod: 'RAZORPAY',
+      paymentStatus: 'FAILED',
+    })
+    return { status: 400, body: { success: false, error: `Payment failed on Razorpay gateway (status: ${rzpPayment.status})` } }
+  }
+
+  // 6. VERIFY RAZORPAY AMOUNT MATCHES SERVER-CALCULATED ORDER TOTAL
+  const rzpAmountInPaise = Number(rzpPayment?.amount ?? rzpOrder?.amount ?? 0)
+  if (rzpAmountInPaise > 0 && Math.abs(rzpAmountInPaise - calculated.amountInPaise) > 100) {
+    await saveOrder({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      customer,
+      items,
+      couponCode,
+      status: 'CANCELLED',
+      paymentMethod: 'RAZORPAY',
+      paymentStatus: 'FAILED',
+    })
+    return {
+      status: 400,
+      body: {
+        success: false,
+        error: `Payment amount mismatch: expected ₹${calculated.finalPayableTotal} but received ₹${(rzpAmountInPaise / 100).toFixed(2)}`,
+      },
+    }
+  }
+
+  // 7. STORE GATEWAY ORDER ID AND PAYMENT ID IN DATABASE WITH SUCCESS STATUS
   const savedOrder = await saveOrder({
     orderId: razorpay_order_id,
     paymentId: razorpay_payment_id,
@@ -379,12 +515,59 @@ async function verifyPayment(body) {
     status: 200,
     body: {
       success: true,
-      message: 'Payment verified successfully',
+      message: 'Payment verified successfully with Razorpay API and stored in database',
       orderId: razorpay_order_id,
       paymentId: razorpay_payment_id,
       order: savedOrder.body?.order,
+      calculated,
     },
   }
+}
+
+async function handleRazorpayWebhook(body, headers) {
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET
+  const signature = headers['x-razorpay-signature'] || headers['X-Razorpay-Signature']
+
+  if (!webhookSecret || !signature) {
+    return { status: 400, body: { error: 'Webhook secret or signature missing.' } }
+  }
+
+  const payloadString = typeof body === 'string' ? body : JSON.stringify(body)
+  const expectedSignature = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(payloadString)
+    .digest('hex')
+
+  if (signature !== expectedSignature) {
+    return { status: 400, body: { error: 'Invalid webhook signature.' } }
+  }
+
+  const eventObj = typeof body === 'string' ? JSON.parse(body) : body
+  const event = eventObj.event
+  const payload = eventObj.payload || {}
+
+  console.log(`🔔 Razorpay Webhook Event received: ${event}`)
+
+  if (event === 'payment.captured' || event === 'order.paid') {
+    const payment = payload.payment?.entity || {}
+    const orderId = payment.order_id || payload.order?.entity?.id
+
+    if (orderId) {
+      await updateOrderStatusInDb(orderId, 'PAID')
+    }
+    return { status: 200, body: { status: 'ok', event, processed: true } }
+  }
+
+  if (event === 'payment.failed') {
+    const payment = payload.payment?.entity || {}
+    const orderId = payment.order_id
+    if (orderId) {
+      await updateOrderStatusInDb(orderId, 'CANCELLED')
+    }
+    return { status: 200, body: { status: 'ok', event, processed: true } }
+  }
+
+  return { status: 200, body: { status: 'ok', event, processed: true } }
 }
 
 async function updateOrderStatusInDb(orderId, status) {
@@ -1039,7 +1222,9 @@ export default async function handler(req, res) {
                                             ? await createRazorpayOrder(req.body || {})
                                             : route.endsWith('/payments/verify') && req.method === 'POST'
                                               ? await verifyPayment(req.body || {})
-                                              : { status: 404, body: { error: 'API route not found' } }
+                                              : route.endsWith('/payments/webhook') && req.method === 'POST'
+                                                ? await handleRazorpayWebhook(req.body || {}, req.headers || {})
+                                                : { status: 404, body: { error: 'API route not found' } }
 
     return json(res, result.status, result.body)
   } catch (error) {

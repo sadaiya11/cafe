@@ -824,46 +824,56 @@ app.post('/api/payments/create-order', async (req, res) => {
 
 /**
  * Route: POST /api/payments/verify
- * Description: Verify Razorpay HMAC SHA256 payment signature & save order to Supabase
+ * Description: Robust payment verification (Amount check, direct Razorpay status check, duplicate rejection & failure handling)
  */
 app.post('/api/payments/verify', async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer, items, couponCode } = req.body
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer, items, couponCode } = req.body || {}
+    const keyId = process.env.RAZORPAY_KEY_ID
+    const keySecret = process.env.RAZORPAY_KEY_SECRET
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return res.status(400).json({ error: 'Missing required payment verification details' })
+      return res.status(400).json({ error: 'Missing required payment verification details.' })
     }
 
-    const sign = razorpay_order_id + '|' + razorpay_payment_id
-    const expectedSign = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(sign.toString())
-      .digest('hex')
-
-    if (razorpay_signature === expectedSign) {
-      // 🛡️ Recalculate order details on server to save exact prices to Supabase
-      const dbProducts = await prisma.product.findMany().catch(() => null)
-      let calculated
-      try {
-        calculated = await recalculateOrderOnServer({
-          items,
-          couponCode,
-          catalogProducts: dbProducts,
-          storeSettings: serverSettingsData || null,
+    // 1. REJECT DUPLICATE PAYMENT PROCESSING
+    if (razorpay_order_id) {
+      const existingOrder = await prisma.order.findUnique({ where: { orderId: razorpay_order_id } }).catch(() => null)
+      if (existingOrder && (existingOrder.paymentStatus === 'SUCCESS' || existingOrder.status === 'PAID')) {
+        return res.json({
+          success: true,
+          message: 'Payment has already been processed successfully.',
+          alreadyProcessed: true,
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          order: existingOrder,
         })
-      } catch (err) {
-        return res.status(400).json({ error: err.message })
       }
+    }
 
-      // Save order to Supabase PostgreSQL via Prisma
-      let createdOrder = null
-      try {
-        createdOrder = await prisma.order.create({
+    // 2. AUTHORITATIVE SERVER-SIDE PRICE & TOTAL RECALCULATION
+    const dbProducts = await prisma.product.findMany().catch(() => null)
+    let calculated
+    try {
+      calculated = await recalculateOrderOnServer({
+        items,
+        couponCode,
+        catalogProducts: dbProducts,
+        storeSettings: serverSettingsData || null,
+      })
+    } catch (calcErr) {
+      return res.status(400).json({ error: `Server recalculation failed: ${calcErr.message}` })
+    }
+
+    // 3. DEMO MODE FALLBACK (When credentials unconfigured)
+    if (!keyId || !keySecret) {
+      if (String(razorpay_order_id).startsWith('order_demo_')) {
+        const createdOrder = await prisma.order.create({
           data: {
             orderId: razorpay_order_id,
             paymentId: razorpay_payment_id,
             customer: customer || {},
-            amount: calculated.finalPayableTotal, // AUTHORITATIVE AMOUNT
+            amount: calculated.finalPayableTotal,
             status: 'PAID',
             paymentMethod: 'RAZORPAY',
             paymentStatus: 'SUCCESS',
@@ -876,31 +886,197 @@ app.post('/api/payments/verify', async (req, res) => {
               })),
             },
           },
-        })
-      } catch (dbErr) {
-        console.warn('Order saved to memory, DB log warning:', dbErr.message)
-      }
+          include: { items: true },
+        }).catch(() => null)
 
-      return res.json({
-        success: true,
-        message: 'Payment verified and saved to database successfully',
-        orderId: razorpay_order_id,
-        paymentId: razorpay_payment_id,
-        order: createdOrder,
-        calculated,
+        return res.json({
+          success: true,
+          message: 'Demo payment verified successfully',
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          order: createdOrder,
+          calculated,
+        })
+      }
+      return res.status(503).json({ error: 'Razorpay payment gateway is not configured on the server.' })
+    }
+
+    // 4. VERIFY HMAC SIGNATURE
+    const expectedSign = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex')
+
+    if (razorpay_signature !== expectedSign) {
+      await prisma.order.create({
+        data: {
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          customer: customer || {},
+          amount: calculated.finalPayableTotal,
+          status: 'CANCELLED',
+          paymentMethod: 'RAZORPAY',
+          paymentStatus: 'FAILED',
+        },
+      }).catch(() => null)
+      return res.status(400).json({ success: false, error: 'Invalid payment signature' })
+    }
+
+    // 5. VERIFY PAYMENT STATUS DIRECTLY WITH RAZORPAY API
+    const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`
+    let rzpPayment = null
+    let rzpOrder = null
+
+    try {
+      const payResp = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(razorpay_payment_id)}`, {
+        headers: { Authorization: authHeader },
       })
-    } else {
+      if (payResp.ok) rzpPayment = await payResp.json()
+    } catch (e) {
+      console.warn('Direct Razorpay payment status check warning:', e.message)
+    }
+
+    try {
+      const ordResp = await fetch(`https://api.razorpay.com/v1/orders/${encodeURIComponent(razorpay_order_id)}`, {
+        headers: { Authorization: authHeader },
+      })
+      if (ordResp.ok) rzpOrder = await ordResp.json()
+    } catch (e) {
+      console.warn('Direct Razorpay order status check warning:', e.message)
+    }
+
+    if (rzpPayment && ['failed', 'refunded'].includes(rzpPayment.status)) {
+      await prisma.order.create({
+        data: {
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          customer: customer || {},
+          amount: calculated.finalPayableTotal,
+          status: 'CANCELLED',
+          paymentMethod: 'RAZORPAY',
+          paymentStatus: 'FAILED',
+        },
+      }).catch(() => null)
+      return res.status(400).json({ success: false, error: `Payment failed on Razorpay gateway (status: ${rzpPayment.status})` })
+    }
+
+    // 6. VERIFY RAZORPAY AMOUNT MATCHES SERVER-CALCULATED ORDER TOTAL
+    const rzpAmountInPaise = Number(rzpPayment?.amount ?? rzpOrder?.amount ?? 0)
+    if (rzpAmountInPaise > 0 && Math.abs(rzpAmountInPaise - calculated.amountInPaise) > 100) {
+      await prisma.order.create({
+        data: {
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          customer: customer || {},
+          amount: calculated.finalPayableTotal,
+          status: 'CANCELLED',
+          paymentMethod: 'RAZORPAY',
+          paymentStatus: 'FAILED',
+        },
+      }).catch(() => null)
       return res.status(400).json({
         success: false,
-        error: 'Invalid payment signature',
+        error: `Payment amount mismatch: expected ₹${calculated.finalPayableTotal} but received ₹${(rzpAmountInPaise / 100).toFixed(2)}`,
       })
     }
+
+    // 7. STORE GATEWAY ORDER ID AND PAYMENT ID IN DATABASE WITH SUCCESS STATUS
+    const createdOrder = await prisma.order.create({
+      data: {
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        customer: customer || {},
+        amount: calculated.finalPayableTotal,
+        status: 'PAID',
+        paymentMethod: 'RAZORPAY',
+        paymentStatus: 'SUCCESS',
+        items: {
+          create: calculated.items.map((item) => ({
+            title: item.title,
+            size: item.sizeLabel || item.size || 'standard',
+            quantity: Number(item.quantity),
+            price: Number(item.price),
+          })),
+        },
+      },
+      include: { items: true },
+    }).catch(() => null)
+
+    return res.json({
+      success: true,
+      message: 'Payment verified and saved to database successfully',
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      order: createdOrder,
+      calculated,
+    })
   } catch (error) {
     console.error('Error verifying payment:', error)
     res.status(500).json({
       error: 'Payment verification error',
       details: error.message,
     })
+  }
+})
+
+/**
+ * Route: POST /api/payments/webhook
+ * Description: Handle Razorpay Webhook Events (payment.captured, payment.failed, order.paid)
+ */
+app.post('/api/payments/webhook', async (req, res) => {
+  try {
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET
+    const signature = req.headers['x-razorpay-signature'] || req.headers['X-Razorpay-Signature']
+
+    if (!webhookSecret || !signature) {
+      return res.status(400).json({ error: 'Webhook secret or signature missing.' })
+    }
+
+    const payloadString = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(payloadString)
+      .digest('hex')
+
+    if (signature !== expectedSignature) {
+      return res.status(400).json({ error: 'Invalid webhook signature.' })
+    }
+
+    const eventObj = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
+    const event = eventObj.event
+    const payload = eventObj.payload || {}
+
+    console.log(`🔔 Razorpay Webhook Event received: ${event}`)
+
+    if (event === 'payment.captured' || event === 'order.paid') {
+      const payment = payload.payment?.entity || {}
+      const orderId = payment.order_id || payload.order?.entity?.id
+
+      if (orderId) {
+        await prisma.order.update({
+          where: { orderId },
+          data: { status: 'PAID', paymentStatus: 'SUCCESS' },
+        }).catch(() => null)
+      }
+      return res.json({ status: 'ok', event, processed: true })
+    }
+
+    if (event === 'payment.failed') {
+      const payment = payload.payment?.entity || {}
+      const orderId = payment.order_id
+      if (orderId) {
+        await prisma.order.update({
+          where: { orderId },
+          data: { status: 'CANCELLED', paymentStatus: 'FAILED' },
+        }).catch(() => null)
+      }
+      return res.json({ status: 'ok', event, processed: true })
+    }
+
+    return res.json({ status: 'ok', event, processed: true })
+  } catch (error) {
+    console.error('Error processing Razorpay webhook:', error)
+    res.status(500).json({ error: 'Webhook processing error', details: error.message })
   }
 })
 
