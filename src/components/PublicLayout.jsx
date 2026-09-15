@@ -33,11 +33,11 @@ export default function PublicLayout() {
   }, [dispatch])
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-800">
       <CustomerNotificationToast />
       <TopNavigation brand="Bun Maska Café" cartCount={itemCount} />
 
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+      <main className="mx-auto max-w-7xl px-3 py-6 sm:px-4 sm:py-8 md:px-8">
         <Routes>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/product" element={<ProductListPage />} />

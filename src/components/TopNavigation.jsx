@@ -71,8 +71,8 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-8">
-        <div className="flex items-center gap-3 shrink-0">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3 md:px-8">
+        <div className="flex items-center gap-2 sm:gap-3 shrink min-w-0">
           {/* Logo Container: Logo Image links to Home, Magnifying Glass appears on hover to open HD Big Logo */}
           <div className="relative shrink-0 group">
             {/* Clicking Logo Image redirects to Home Page */}
@@ -80,7 +80,7 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
               <img
                 src="/logo.png"
                 alt="Bun Maska Café Logo"
-                className="h-12 w-12 sm:h-14 sm:w-14 rounded-full object-contain shadow-md border-2 border-amber-400 bg-amber-50 p-0.5 transition-transform duration-200 group-hover:scale-105"
+                className="h-10 w-10 sm:h-14 sm:w-14 rounded-full object-contain shadow-md border-2 border-amber-400 bg-amber-50 p-0.5 transition-transform duration-200 group-hover:scale-105"
               />
             </Link>
 
@@ -92,15 +92,19 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
                 setShowLogoModal(true)
               }}
               title="Click magnifying glass to view HD big logo"
-              className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-white shadow-md border-2 border-white text-[10px] opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 hover:bg-amber-600 hover:scale-110 active:scale-95"
+              className="absolute -bottom-1 -right-1 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-amber-500 text-white shadow-md border-2 border-white text-[9px] sm:text-[10px] opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 hover:bg-amber-600 hover:scale-110 active:scale-95"
             >
               🔍
             </button>
           </div>
 
-          <Link to="/dashboard" onClick={() => setMenuOpen(false)}>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.32em] text-orange-600">Fresh Taste & Chai</p>
-            <p className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">{storeSettings?.storeName || brand}</p>
+          <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="shrink min-w-0 overflow-hidden">
+            <p className="hidden xs:block text-[9px] sm:text-[10px] font-extrabold uppercase tracking-[0.2em] sm:tracking-[0.32em] text-orange-600 truncate">
+              Fresh Taste & Chai
+            </p>
+            <p className="text-sm xs:text-base sm:text-xl font-black text-slate-900 tracking-tight truncate">
+              {storeSettings?.storeName || brand}
+            </p>
           </Link>
         </div>
 
@@ -119,18 +123,18 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Notification Bell Button & Dropdown */}
           <div className="relative">
             <button
               type="button"
               onClick={toggleNotifDropdown}
               aria-label="Customer Notifications"
-              className="relative rounded-full border border-slate-200 p-3 text-lg transition hover:border-orange-300 hover:bg-orange-50 cursor-pointer"
+              className="relative rounded-full border border-slate-200 p-2 sm:p-3 text-base sm:text-lg transition hover:border-orange-300 hover:bg-orange-50 cursor-pointer"
             >
               <span aria-hidden="true">🔔</span>
               {unreadCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-600 px-1 text-[10px] font-black text-white animate-pulse">
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 sm:h-5 sm:min-w-5 items-center justify-center rounded-full bg-orange-600 px-1 text-[9px] sm:text-[10px] font-black text-white animate-pulse">
                   {unreadCount}
                 </span>
               ) : null}
@@ -138,7 +142,7 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
 
             {/* Notification Dropdown Panel */}
             {showNotifDropdown && (
-              <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white border border-slate-200 shadow-2xl p-4 z-[9999] space-y-3 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute right-0 mt-2 w-72 xs:w-80 sm:w-96 rounded-2xl bg-white border border-slate-200 shadow-2xl p-4 z-[9999] space-y-3 animate-in fade-in zoom-in-95 duration-150">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                   <div className="flex items-center gap-2">
                     <span className="font-black text-slate-900 text-sm">Notifications</span>
@@ -197,21 +201,21 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
           <Link
             to="/cart"
             aria-label={`Cart with ${cartCount} items`}
-            className="relative rounded-full border border-slate-200 p-3 text-lg transition hover:border-orange-300 hover:bg-orange-50"
+            className="relative rounded-full border border-slate-200 p-2 sm:p-3 text-base sm:text-lg transition hover:border-orange-300 hover:bg-orange-50 shrink-0"
           >
             <span aria-hidden="true">🛒</span>
             {cartCount > 0 ? (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-black text-white">
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 sm:h-5 sm:min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[9px] sm:text-[10px] font-black text-white">
                 {cartCount}
               </span>
             ) : null}
           </Link>
 
           {isAuthenticated ? (
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               <Link
                 to="/profile"
-                className="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-800 transition hover:border-orange-300 hover:bg-orange-50 sm:flex"
+                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-800 transition hover:border-orange-300 hover:bg-orange-50"
               >
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
                   {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
@@ -229,7 +233,7 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
           ) : (
             <Link
               to="/login"
-              className="rounded-full bg-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600"
+              className="hidden sm:inline-flex rounded-full bg-orange-500 px-4 py-2 text-xs sm:px-5 sm:py-2.5 sm:text-sm font-bold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600 shrink-0"
             >
               Login
             </Link>
@@ -240,7 +244,7 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
             onClick={() => setMenuOpen((open) => !open)}
             aria-expanded={menuOpen}
             aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-xl text-slate-700 transition hover:border-orange-300 hover:bg-orange-50 md:hidden"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-slate-200 text-base sm:text-xl text-slate-700 transition hover:border-orange-300 hover:bg-orange-50 md:hidden shrink-0"
           >
             {menuOpen ? '×' : '☰'}
           </button>
@@ -248,7 +252,7 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
       </nav>
 
       {menuOpen ? (
-        <div className="border-t border-slate-200 bg-white px-4 py-3 md:hidden">
+        <div className="border-t border-slate-200 bg-white px-4 py-3 md:hidden animate-in slide-in-from-top-2 duration-150">
           <div className="mx-auto flex max-w-7xl flex-col gap-1">
             {items.map((item) => (
               <NavLink
@@ -256,22 +260,43 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
                 to={item.path}
                 onClick={() => setMenuOpen(false)}
                 className={({ isActive }) =>
-                  `rounded-xl px-4 py-3 text-sm font-semibold transition ${isActive ? 'bg-orange-500 text-white' : 'text-slate-700 hover:bg-orange-50 hover:text-orange-600'
+                  `rounded-xl px-4 py-2.5 text-sm font-semibold transition ${isActive ? 'bg-orange-500 text-white' : 'text-slate-700 hover:bg-orange-50 hover:text-orange-600'
                   }`
                 }
               >
                 {item.label}
               </NavLink>
             ))}
+
             {isAuthenticated ? (
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="mt-2 text-left rounded-xl px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+              <div className="mt-2 flex flex-col gap-2 border-t border-slate-100 pt-3">
+                <Link
+                  to="/profile"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-800 border border-slate-200"
+                >
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
+                    {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                  </span>
+                  <span className="truncate">{user?.name || user?.email}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="text-left rounded-xl px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 border border-red-100 bg-red-50/50"
+                >
+                  🚪 Logout ({user?.email?.split('@')[0]})
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                onClick={() => setMenuOpen(false)}
+                className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-orange-200"
               >
-                Logout ({user?.email})
-              </button>
-            ) : null}
+                🔑 Login / Account
+              </Link>
+            )}
           </div>
         </div>
       ) : null}

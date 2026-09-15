@@ -45,21 +45,21 @@ export default function HeroSlider() {
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/60 to-transparent" />
       </div>
 
-      <div className="relative z-10 grid min-h-[520px] items-center px-6 py-10 md:px-12 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="relative z-10 grid min-h-[360px] sm:min-h-[440px] md:min-h-[520px] items-center px-4 py-8 sm:px-6 sm:py-10 md:px-12 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="max-w-xl">
-          <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.25em] text-orange-200 backdrop-blur-sm">
+          <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] sm:tracking-[0.25em] text-orange-200 backdrop-blur-sm">
             {slide.badge}
           </span>
-          <h1 className="mt-6 text-4xl font-black leading-tight text-white md:text-6xl">
+          <h1 className="mt-4 sm:mt-6 text-2xl xs:text-3xl sm:text-4xl font-black leading-tight text-white md:text-6xl">
             {slide.title}
           </h1>
-          <p className="mt-5 max-w-lg text-base text-slate-200 md:text-lg">{slide.subtitle}</p>
+          <p className="mt-3 sm:mt-5 max-w-lg text-xs sm:text-base text-slate-200 md:text-lg">{slide.subtitle}</p>
 
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Link to="/product" className="rounded-full bg-orange-500 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-600 shadow-lg shadow-orange-500/20">
+          <div className="mt-6 sm:mt-8 flex flex-wrap gap-2.5 sm:gap-4">
+            <Link to="/product" className="rounded-full bg-orange-500 px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-bold text-white transition hover:bg-orange-600 shadow-lg shadow-orange-500/20">
               Order Online ➔
             </Link>
-            <Link to="/offers" className="rounded-full border border-white/40 bg-transparent px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10">
+            <Link to="/offers" className="rounded-full border border-white/40 bg-transparent px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-bold text-white transition hover:bg-white/10">
               View Special Offers
             </Link>
           </div>

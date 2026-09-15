@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   getBrowserNotificationPermission,
   requestBrowserNotificationPermission,
@@ -9,12 +10,20 @@ export default function CustomerNotificationToast() {
   const [toast, setToast] = useState(null)
   const [permission, setPermission] = useState(getBrowserNotificationPermission)
   const [showPromptBanner, setShowPromptBanner] = useState(false)
+  const location = useLocation()
+  const isOrderPage = location.pathname.startsWith('/orders')
 
   useEffect(() => {
-    // Check if permission prompt banner should be shown
-    if (isBrowserNotificationSupported() && permission === 'default') {
+    // Show permission prompt banner ONLY when user is on the Order page (/orders)
+    if (isOrderPage && isBrowserNotificationSupported() && permission === 'default') {
       const dismissed = sessionStorage.getItem('bun_notif_banner_dismissed')
-      if (!dismissed) setShowPromptBanner(true)
+      if (!dismissed) {
+        setShowPromptBanner(true)
+      } else {
+        setShowPromptBanner(false)
+      }
+    } else {
+      setShowPromptBanner(false)
     }
 
     const handleToastEvent = (e) => {
@@ -25,7 +34,7 @@ export default function CustomerNotificationToast() {
 
     window.addEventListener('bun_customer_notification_toast', handleToastEvent)
     return () => window.removeEventListener('bun_customer_notification_toast', handleToastEvent)
-  }, [permission])
+  }, [permission, isOrderPage])
 
   useEffect(() => {
     if (toast) {
@@ -48,7 +57,7 @@ export default function CustomerNotificationToast() {
   }
 
   return (
-    <div className="fixed top-20 right-4 z-[9999] max-w-sm w-full space-y-3 pointer-events-none px-2 sm:px-0">
+    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] w-[92%] max-w-md space-y-3 pointer-events-none">
       
       {/* Browser Notification Permission Banner Prompt */}
       {showPromptBanner ? (
