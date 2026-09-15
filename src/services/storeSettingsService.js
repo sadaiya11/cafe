@@ -19,12 +19,12 @@ export const DEFAULT_SETTINGS = {
   closeHour: 23, // 11:30 PM
   closeMinute: 30,
   socialLinks: {
-    instagram: '',
-    facebook: '',
-    twitter: '',
-    youtube: '',
-    whatsapp: '',
-    googleBusiness: '',
+    instagram: 'https://www.instagram.com/bunmaskacafe',
+    facebook: 'https://www.facebook.com/bunmaskacafe',
+    twitter: 'https://x.com/bunmaskacafe',
+    youtube: 'https://www.youtube.com/@bunmaskacafe',
+    whatsapp: 'https://wa.me/918085700750',
+    googleBusiness: 'https://www.google.com/maps/search/?api=1&query=Bun+Maska+Cafe+Guna',
   },
 }
 
