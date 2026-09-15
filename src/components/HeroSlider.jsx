@@ -41,7 +41,14 @@ export default function HeroSlider() {
   return (
     <section className="relative overflow-hidden rounded-[2rem] bg-slate-900 shadow-2xl shadow-orange-200/30">
       <div className="absolute inset-0">
-        <img src={slide.image} alt={slide.title} className="h-full w-full object-cover opacity-75" />
+        <img
+          src={slide.image}
+          alt={slide.title}
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+          className="h-full w-full object-cover opacity-75"
+        />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/60 to-transparent" />
       </div>
 
@@ -94,16 +101,21 @@ export default function HeroSlider() {
         </div>
       </div>
 
-      <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3">
+      <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
         {slides.map((item, index) => (
           <button
-            key={item.title}
+            key={item.title || index}
             type="button"
             onClick={() => setActiveSlide(index)}
-            className={`h-3 rounded-full transition ${index === activeSlide ? 'w-10 bg-orange-500' : 'w-3 bg-white/60 hover:bg-white'
-              }`}
+            className="h-2.5 w-6 rounded-full bg-white/30 p-0.5 transition-colors hover:bg-white/50 cursor-pointer"
             aria-label={`Go to slide ${index + 1}`}
-          />
+          >
+            <div
+              className={`h-full w-full rounded-full transition-all duration-300 ${
+                index === activeSlide ? 'bg-orange-500 scale-100' : 'bg-white/40 scale-75'
+              }`}
+            />
+          </button>
         ))}
       </div>
     </section>
