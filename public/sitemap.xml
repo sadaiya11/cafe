@@ -39,27 +39,26 @@
   </url>
 
   <!-- Product Detail Pages -->
-  <url><loc>https://bunmaskacafe.com/product/mango-special-menu</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/signature-chicken-shawarma</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/italian-classics</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/creamy-chicken-pasta</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/grilled-chicken-platter</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/margherita-pizza</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/fruit-salad</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/chocolate-lava-cake</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/classic-cheesecake</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/strawberry-ice-cream</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/blueberry-pancake-stack</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/classic-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/crispy-chicken-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/double-cheese-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/bbq-bacon-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/spicy-jalapeno-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/mushroom-swiss-burger</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/seafood-feast</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/garlic-butter-prawns</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/grilled-salmon</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/crispy-fish-and-chips</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/lemon-herb-shrimp-pasta</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://bunmaskacafe.com/product/spicy-seafood-rice</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/nutella-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/rabdi-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/rose-pistachio-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/black-currant-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/tutti-fruity-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/strawberry-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/chocolate-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/classic-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/maska-loaded-sandwich</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/half-loaded-sandwich</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/plain-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/tadka-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/cheese-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/veg-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/fried-momos</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/steam-momos</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/maska-loaded-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/cheese-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/garlic-butter-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/cheese-peri-peri-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/classic-salted-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+    <url><loc>https://bunmaskacafe.com/product/kinley-water</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
 </urlset>

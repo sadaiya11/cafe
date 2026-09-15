@@ -2,9 +2,10 @@ import { useEffect } from 'react'
 
 export default function SEO({
   title,
-  description = 'Bun Maska Café offers delicious Bun Maska, fresh Bakery items, Breakfast Café specials, Snacks, and Sandwiches.',
-  keywords = 'Bun Maska, Cafe, Bakery, Breakfast Cafe, Snacks, Sandwich, Sandwitch',
+  description = 'Order fresh vegetarian Bun Maska, burgers, Maggi, noodles, French fries, momos, snacks, and Kinley water online from Bun Maska Café.',
+  keywords = 'Bun Maska Cafe, vegetarian cafe, veg burger, noodles, Maggi, French fries, momos, bun maska online, cafe food delivery, Kinley water',
   canonical,
+  canonicalUrl,
   ogImage = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80',
   ogType = 'website',
   noindex = false,
@@ -46,7 +47,9 @@ export default function SEO({
     setMetaTag('meta[property="og:description"]', 'property', 'og:description', description)
     setMetaTag('meta[property="og:image"]', 'property', 'og:image', ogImage)
     setMetaTag('meta[property="og:type"]', 'property', 'og:type', ogType)
-    setMetaTag('meta[property="og:url"]', 'property', 'og:url', canonical || window.location.href)
+    const canonicalHref = canonical || canonicalUrl || window.location.href
+    const absoluteCanonical = new URL(canonicalHref, window.location.origin).href
+    setMetaTag('meta[property="og:url"]', 'property', 'og:url', absoluteCanonical)
     setMetaTag('meta[property="og:site_name"]', 'property', 'og:site_name', siteName)
 
     // Twitter Cards
@@ -56,7 +59,7 @@ export default function SEO({
     setMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', ogImage)
 
     // Canonical Tag
-    setCanonicalLink(canonical || window.location.href)
+    setCanonicalLink(absoluteCanonical)
 
     // JSON-LD Structured Data
     let scriptTag = document.querySelector('#seo-json-ld')
@@ -71,7 +74,7 @@ export default function SEO({
     } else if (scriptTag) {
       scriptTag.remove()
     }
-  }, [title, description, keywords, canonical, ogImage, ogType, noindex, jsonLd])
+  }, [title, description, keywords, canonical, canonicalUrl, ogImage, ogType, noindex, jsonLd])
 
   return null
 }

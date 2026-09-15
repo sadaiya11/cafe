@@ -5,6 +5,10 @@ import HeroSlider from '../components/HeroSlider'
 import InfoBanner from '../components/InfoBanner'
 import SEO from '../components/SEO'
 import { getLocalCatalog, loadCatalog } from '../services/productCatalog'
+import { getStoreSettings } from '../services/storeSettingsService'
+
+const storeSettings = getStoreSettings()
+const socialLinks = Object.values(storeSettings.socialLinks || {}).filter(Boolean)
 
 const cafeJsonLd = {
   '@context': 'https://schema.org',
@@ -15,7 +19,7 @@ const cafeJsonLd = {
   url: 'https://bunmaskacafe.com',
   telephone: '+91-8085700750',
   priceRange: '₹₹',
-  servesCuisine: ['Café', 'Bakery', 'Irani Chai', 'Snacks', 'Coffee'],
+  servesCuisine: ['Café', 'Bakery', 'Bun Maska', 'Vegetarian Burgers', 'Maggi', 'Noodles', 'French Fries', 'Momos', 'Snacks', 'Coffee'],
   address: {
     '@type': 'PostalAddress',
     streetAddress: 'Sisodiya Colony, Guna M.P.',
@@ -31,6 +35,7 @@ const cafeJsonLd = {
       closes: '02:30',
     },
   ],
+  sameAs: socialLinks,
 }
 
 export default function DashboardPage() {

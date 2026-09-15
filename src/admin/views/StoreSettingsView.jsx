@@ -39,6 +39,13 @@ export default function StoreSettingsView() {
     setSettings((prev) => ({ ...prev, [field]: value }))
   }
 
+  const handleSocialLinkChange = (platform, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      socialLinks: { ...(prev.socialLinks || {}), [platform]: value },
+    }))
+  }
+
   const handleSaveSettings = async (e) => {
     e.preventDefault()
     await saveStoreSettings(settings)
@@ -402,6 +409,32 @@ export default function StoreSettingsView() {
             >
               💾 Save Store Settings
             </button>
+          </div>
+
+          <div className="border-t border-slate-800 pt-6">
+            <h4 className="text-sm font-bold text-white">Social Profiles & SEO Links</h4>
+            <p className="mt-1 text-xs text-slate-400">Paste the official public URLs. Empty fields stay hidden from customers and search engines.</p>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {[
+                ['instagram', 'Instagram profile URL'],
+                ['facebook', 'Facebook page URL'],
+                ['twitter', 'X / Twitter profile URL'],
+                ['youtube', 'YouTube channel URL'],
+                ['whatsapp', 'WhatsApp chat URL'],
+                ['googleBusiness', 'Google Business Profile URL'],
+              ].map(([platform, label]) => (
+                <div key={platform}>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">{label}</label>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={settings.socialLinks?.[platform] || ''}
+                    onChange={(e) => handleSocialLinkChange(platform, e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </form>

@@ -439,5 +439,23 @@
         ]
       }
     ]
+  },
+  {
+    "slug": "kinley-water",
+    "title": "Kinley Water Bottle",
+    "category": "Beverages",
+    "tag": "ESSENTIAL",
+    "description": "Chilled Kinley packaged drinking water bottle.",
+    "variants": [
+      {
+        "size": "bottle",
+        "label": "Bottle",
+        "price": 20,
+        "image": "https://images.unsplash.com/photo-1564419320461-6870880221ad?auto=format&fit=crop&w=900&q=80",
+        "gallery": [
+          "https://images.unsplash.com/photo-1564419320461-6870880221ad?auto=format&fit=crop&w=900&q=80"
+        ]
+      }
+    ]
   }
 ]

@@ -18,6 +18,14 @@ export const DEFAULT_SETTINGS = {
   openMinute: 0,
   closeHour: 23, // 11:30 PM
   closeMinute: 30,
+  socialLinks: {
+    instagram: '',
+    facebook: '',
+    twitter: '',
+    youtube: '',
+    whatsapp: '',
+    googleBusiness: '',
+  },
 }
 
 export const DEFAULT_HERO_SLIDES = [
@@ -95,6 +103,7 @@ export function getStoreSettings() {
       openMinute: parsed.openMinute !== undefined ? parsed.openMinute : 0,
       closeHour: parsed.closeHour !== undefined ? parsed.closeHour : 23,
       closeMinute: parsed.closeMinute !== undefined ? parsed.closeMinute : 30,
+      socialLinks: { ...DEFAULT_SETTINGS.socialLinks, ...(parsed.socialLinks || {}) },
       storeClosedNotice: parsed.storeClosedNotice && !parsed.storeClosedNotice.includes('11:59') ? parsed.storeClosedNotice : 'Our cafe daily operating hours: 11:00 AM - 11:30 PM.',
     }
   } catch {

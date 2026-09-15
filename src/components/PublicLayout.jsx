@@ -19,6 +19,16 @@ import ProfilePage from '../pages/ProfilePage'
 import { useDispatch } from 'react-redux'
 import { logout } from '../store/authSlice'
 import { useCart } from '../context/useCart'
+import { getStoreSettings } from '../services/storeSettingsService'
+
+const socialPlatforms = [
+  ['Instagram', 'instagram'],
+  ['Facebook', 'facebook'],
+  ['X / Twitter', 'twitter'],
+  ['YouTube', 'youtube'],
+  ['WhatsApp', 'whatsapp'],
+  ['Google Business', 'googleBusiness'],
+]
 
 export default function PublicLayout() {
   const { itemCount } = useCart()
@@ -97,6 +107,15 @@ export default function PublicLayout() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </main>
+      <footer className="border-t border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+        <p className="font-semibold text-slate-700">Bun Maska Café</p>
+        <div className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-2">
+          {socialPlatforms.map(([label, key]) => {
+            const href = getStoreSettings().socialLinks?.[key]
+            return href ? <a key={key} href={href} target="_blank" rel="noreferrer" className="hover:text-orange-600">{label}</a> : null
+          })}
+        </div>
+      </footer>
     </div>
   )
 }
