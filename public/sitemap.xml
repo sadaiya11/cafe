@@ -2,63 +2,63 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <!-- Core Static Pages -->
   <url>
-    <loc>https://bunmaskacafe.com/</loc>
-    <lastmod>2026-09-05</lastmod>
+    <loc>https://bunmasska.in/</loc>
+    <lastmod>2026-09-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://bunmaskacafe.com/dashboard</loc>
-    <lastmod>2026-09-05</lastmod>
+    <loc>https://bunmasska.in/dashboard</loc>
+    <lastmod>2026-09-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://bunmaskacafe.com/product</loc>
-    <lastmod>2026-09-05</lastmod>
+    <loc>https://bunmasska.in/product</loc>
+    <lastmod>2026-09-15</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://bunmaskacafe.com/offers</loc>
-    <lastmod>2026-09-05</lastmod>
+    <loc>https://bunmasska.in/offers</loc>
+    <lastmod>2026-09-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://bunmaskacafe.com/about</loc>
-    <lastmod>2026-09-05</lastmod>
+    <loc>https://bunmasska.in/about</loc>
+    <lastmod>2026-09-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://bunmaskacafe.com/contact</loc>
-    <lastmod>2026-09-05</lastmod>
+    <loc>https://bunmasska.in/contact</loc>
+    <lastmod>2026-09-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <!-- Product Detail Pages -->
-    <url><loc>https://bunmaskacafe.com/product/nutella-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/rabdi-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/rose-pistachio-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/black-currant-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/tutti-fruity-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/strawberry-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/chocolate-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/classic-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/maska-loaded-sandwich</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/half-loaded-sandwich</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/plain-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/tadka-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/cheese-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/veg-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/fried-momos</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/steam-momos</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/maska-loaded-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/cheese-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/garlic-butter-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/cheese-peri-peri-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/classic-salted-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-    <url><loc>https://bunmaskacafe.com/product/kinley-water</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/nutella-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/rabdi-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/rose-pistachio-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/black-currant-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/tutti-fruity-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/strawberry-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/chocolate-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/classic-bun-maska</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/maska-loaded-sandwich</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/half-loaded-sandwich</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/plain-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/tadka-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/cheese-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/veg-maggie</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/fried-momos</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/steam-momos</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/maska-loaded-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/cheese-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/garlic-butter-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/cheese-peri-peri-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/classic-salted-fries</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://bunmasska.in/product/kinley-water</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
 </urlset>

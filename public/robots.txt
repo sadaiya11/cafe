@@ -1,6 +1,7 @@
-# robots.txt for Bun Maska Cafe
+# robots.txt for Bun Maska Cafe (https://bunmasska.in)
 User-agent: *
 Allow: /
+Allow: /dashboard
 Allow: /product
 Allow: /product/*
 Allow: /offers
@@ -13,6 +14,9 @@ Disallow: /checkout
 Disallow: /orders
 Disallow: /profile
 Disallow: /login
+Disallow: /register
+Disallow: /admin
+Disallow: /pos
 
 # Sitemap location
-Sitemap: https://bunmaskacafe.com/sitemap.xml
+Sitemap: https://bunmasska.in/sitemap.xml
