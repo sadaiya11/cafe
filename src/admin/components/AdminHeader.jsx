@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import { logoutStaff } from '../../services/staffAuthService'
+import SoundSelectorModal from './SoundSelectorModal'
+import { getSavedSoundType, SOUND_TYPES, playNewOrderAlert } from '../services/soundAlert'
 
 export default function AdminHeader({ 
   soundEnabled, 
@@ -10,6 +13,10 @@ export default function AdminHeader({
   searchTerm,
   setSearchTerm 
 }) {
+  const [showSoundModal, setShowSoundModal] = useState(false)
+  const savedType = getSavedSoundType()
+  const activeSoundObj = SOUND_TYPES.find(s => s.id === savedType) || SOUND_TYPES[0]
+
   return (
     <header className="sticky top-0 z-30 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 px-6 py-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -68,7 +75,7 @@ export default function AdminHeader({
           {/* Sound Alert Toggle Button */}
           <button
             onClick={onToggleSound}
-            className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
+            className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
               soundEnabled
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
                 : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
@@ -78,24 +85,34 @@ export default function AdminHeader({
             <span>{soundEnabled ? '🔔 Sound ON' : '🔕 Muted'}</span>
           </button>
 
-          {/* Test Sound Button */}
+          {/* Change Sound & Voice Preferences Button */}
           {soundEnabled && (
             <button
-              onClick={onTestSound}
-              className="px-2.5 py-2 rounded-xl text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-all"
-              title="Test notification audio chime"
+              onClick={() => setShowSoundModal(true)}
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all cursor-pointer"
+              title="Change sound alert or voice announcement settings"
             >
-              🔊 Test Chime
+              <span>{activeSoundObj ? activeSoundObj.icon : '🔊'}</span>
+              <span>Sound Settings</span>
             </button>
           )}
 
-
+          {/* Test Selected Sound Button */}
+          {soundEnabled && (
+            <button
+              onClick={() => playNewOrderAlert()}
+              className="px-2.5 py-2 rounded-xl text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-all cursor-pointer"
+              title="Test selected sound or voice alert"
+            >
+              ▶️ Test Sound
+            </button>
+          )}
 
           <button
             onClick={() => {
               logoutStaff();
             }}
-            className="flex items-center space-x-1 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-rose-500/20 hover:text-rose-300 text-slate-400 border border-slate-700 transition-all"
+            className="flex items-center space-x-1 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-rose-500/20 hover:text-rose-300 text-slate-400 border border-slate-700 transition-all cursor-pointer"
             title="Lock Portal"
           >
             <span>🔒</span>
@@ -104,6 +121,12 @@ export default function AdminHeader({
         </div>
 
       </div>
+
+      {/* Sound & Voice Selector Modal */}
+      <SoundSelectorModal
+        isOpen={showSoundModal}
+        onClose={() => setShowSoundModal(false)}
+      />
     </header>
   );
 }

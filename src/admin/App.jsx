@@ -14,7 +14,7 @@ import StaffManagerView from './views/StaffManagerView';
 import OrderDetailModal from './components/OrderDetailModal';
 import OrderNotificationToast from './components/OrderNotificationToast';
 import { fetchAdminOrders, updateOrderStatus } from './services/adminApi';
-import { playNewOrderChime } from './services/soundAlert';
+import { playNewOrderAlert } from './services/soundAlert';
 import { getLocalCatalog } from '../services/productCatalog';
 
 const VALID_TABS = ['orders', 'products', 'payments', 'analytics', 'coupons', 'inventory', 'settings', 'customers', 'staff', 'reviews'];
@@ -90,7 +90,7 @@ export default function App() {
     if (!isFirstLoadRef.current && data.length > prevOrdersCountRef.current) {
       const newestOrder = data[0]; // Most recent order
       if (soundEnabled) {
-        playNewOrderChime();
+        playNewOrderAlert();
       }
       setNewOrderToast(newestOrder);
     }
@@ -127,7 +127,7 @@ export default function App() {
   };
 
   const handleTestSound = () => {
-    playNewOrderChime();
+    playNewOrderAlert();
   };
 
   // Status Change Handler

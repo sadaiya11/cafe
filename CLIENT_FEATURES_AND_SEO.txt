@@ -1,0 +1,223 @@
+BUN MASKA CAFE - PROJECT FEATURES, SEO, AND FUTURE ROADMAP
+============================================================
+
+CLIENT PRESENTATION SUMMARY
+
+1. CUSTOMER WEBSITE FEATURES
+-----------------------------
+- Café homepage with hero banners and promotional sections.
+- Online food menu with categories:
+  - Bun Maska
+  - Sandwiches
+  - Maggie
+  - Momos
+  - French Fries
+  - Beverages
+- Product detail pages with product name, description, price, images,
+  availability, quantity selector, add-to-cart, and buy-now actions.
+- Product variants and variant pricing support.
+- Customer reviews and ratings display.
+- Shopping cart and checkout.
+- Customer registration, login, logout, forgot password, and reset password.
+- Customer profile and order history.
+- Order status notifications.
+- Responsive mobile and desktop design.
+- About Us, Contact Us, and Special Offers pages.
+
+2. ONLINE ORDERING AND PAYMENT
+------------------------------
+- Razorpay payment integration structure.
+- Test payment support.
+- Demo payment mode when the payment API is unavailable.
+- Payment success and payment failure screens.
+- Backend order creation and payment verification.
+- Customer order history and status tracking.
+- Server-side validation for order and payment data.
+
+Live Razorpay credentials must be configured and tested before launch.
+
+3. ADMIN PANEL FEATURES
+-----------------------
+The admin panel allows staff to manage:
+- Orders and order status.
+- Products, prices, descriptions, categories, tags, and availability.
+- Product images and gallery images.
+- Inventory.
+- Coupons and discounts.
+- Customers.
+- Staff accounts and permissions.
+- Customer reviews.
+- Payments.
+- Store settings.
+- Hero banners and promotional slides.
+- Analytics and best-selling products.
+- CSV sales exports.
+- Order notification sounds and alerts.
+
+Admin and staff access is protected with authentication and role-based access.
+
+4. POINT-OF-SALE SYSTEM
+------------------------
+The project includes a POS system for café staff:
+- POS menu and product search.
+- Add items to an active ticket.
+- Quantity management.
+- POS checkout.
+- Payment method selection.
+- Thermal receipt display.
+- Shift summary.
+- Daily register information.
+
+5. BACKEND AND DATABASE
+-----------------------
+Technology used:
+- React and Vite for the frontend.
+- Node.js and Express for backend APIs.
+- PostgreSQL database through Supabase.
+- Prisma for database management.
+- JWT authentication.
+- bcrypt password hashing.
+- Razorpay payments.
+- Supabase Storage for product and banner images.
+- Resend/Nodemailer for email functionality.
+
+The database stores:
+- Customers.
+- Admin and staff users.
+- Products and product variants.
+- Orders and order items.
+- Store settings.
+- Hero banners.
+
+6. SEO FEATURES IMPLEMENTED
+----------------------------
+Page titles:
+- Each important page can have its own SEO title.
+- Product pages use the product name in the page title.
+
+Meta descriptions:
+- Pages have descriptions for search engines.
+- Descriptions mention Bun Maska, Maggie, noodles, momos, French fries,
+  snacks, café food, and Kinley water.
+
+SEO keywords:
+- Bun Maska Café.
+- Bun Maska online.
+- Vegetarian café.
+- Maggi and noodles.
+- Momos.
+- French fries.
+- Café food delivery.
+- Kinley water.
+- Café in Guna.
+
+Keywords support the page but useful content, local information, links,
+reviews, and website authority are more important to Google.
+
+Canonical URLs:
+- Canonical URLs identify the official version of each page.
+- This helps prevent duplicate URL issues.
+
+Robots metadata:
+- Public pages are configured for indexing.
+- Private pages such as cart, checkout, login, profile, and orders should not
+  be indexed by search engines.
+
+Open Graph metadata:
+- Social sharing title.
+- Social sharing description.
+- Social sharing image.
+- Social sharing URL.
+
+Twitter/X metadata:
+- Twitter/X card title, description, and image.
+
+Structured data / JSON-LD:
+- Café business information.
+- Café name, phone, address, opening hours, and cuisine types.
+- Product names, categories, prices, images, and availability.
+- Social profile links through the schema.org sameAs property.
+
+Sitemap:
+- Homepage.
+- Menu page.
+- About page.
+- Contact page.
+- Offers page.
+- Individual product pages.
+
+Robots.txt:
+- Allows public pages to be crawled.
+- Blocks private customer pages.
+- Points search engines to the sitemap.
+
+Social SEO:
+- Instagram, Facebook, X/Twitter, YouTube, WhatsApp, and Google Business
+  links can be configured in Admin > Store Settings.
+- These links appear in the website footer and structured data.
+- Replace all example social URLs with the café's official URLs.
+
+7. DEPLOYMENT ARCHITECTURE
+---------------------------
+- Frontend deployment configuration is prepared for Vercel.
+- No Render-specific application code or Render service configuration is in
+  the project.
+- Backend can run as a Node.js service or API deployment.
+- Database is Supabase PostgreSQL.
+- Images can be stored in Supabase Storage.
+
+8. FUTURE IMPROVEMENTS
+----------------------
+Highest priority:
+
+- Configure final delivery charges and GST rules.
+- Add order confirmation emails and WhatsApp notifications.
+
+SEO improvements:
+- Create category landing pages.
+- Add unique descriptions for every product.
+- Add accurate image alt text.
+- Add customer review schema.
+- Add LocalBusiness schema with exact coordinates.
+- Add FAQ content.
+- Add delivery-area pages.
+- Add café blog/content pages.
+- Compress images and improve page speed.
+- Add breadcrumbs to product pages.
+- Monitor Google Search Console.
+- Track search rankings and customer search terms.
+
+Business improvements:
+- Combo meals and add-ons.
+- Scheduled delivery.
+- Delivery partner integration.
+- Loyalty points.
+- Referral system.
+- Repeat-order button.
+- Low-stock alerts.
+- Kitchen order display.
+- Multiple branch support.
+- Detailed daily and category sales reports.
+- Automatic invoice generation.
+
+Technical improvements:
+- 
+- Add database backups.
+
+
+
+
+10. SHORT CLIENT EXPLANATION
+----------------------------
+This project is an online café ordering platform with a customer website,
+shopping cart, checkout, payments, customer accounts, order tracking, admin
+management, POS billing, product management, analytics, and SEO support.
+
+The SEO setup includes page titles, descriptions, keywords, canonical URLs,
+Open Graph sharing data, Twitter/X cards, product structured data, café
+structured data, social profile connections, sitemap.xml, and robots.txt.
+
+The next important steps are adding the final business information, connecting
+real social profiles, verifying Google Business Profile, configuring live
+payments, submitting the sitemap to Google Search Console, and securing all
+production credentials.
