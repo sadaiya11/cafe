@@ -239,6 +239,7 @@ async function saveOrder(body) {
     calculated = await recalculateOrderOnServer({
       items,
       couponCode,
+      paymentMethod,
       catalogProducts: dbProducts,
       storeSettings: dbSettings,
     })

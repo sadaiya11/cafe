@@ -11,9 +11,15 @@ import { notifyOrderConfirmed, notifyPaymentSuccess, notifyPaymentFailed } from 
 
 const formatPrice = (price) => `₹${Number(price || 0).toFixed(2)}`
 
-const paymentMethods = [
+const getPaymentMethods = (subtotal = 0) => [
   { id: 'razorpay', title: 'Pay Online (Razorpay / UPI / Card)', detail: 'Instant checkout with UPI, Credit/Debit Cards, NetBanking, or Wallet.' },
-  { id: 'cod', title: 'Cash on Delivery (COD)', detail: 'Pay cash when your fresh food arrives at your door.' },
+  {
+    id: 'cod',
+    title: 'Cash on Delivery (COD)',
+    detail: subtotal >= 220
+      ? 'Pay cash when your fresh food arrives at your door.'
+      : 'Pay cash when your fresh food arrives at your door (+₹8 COD Charge for orders below ₹220).',
+  },
 ]
 
 function loadRazorpayScript() {
@@ -28,7 +34,8 @@ function loadRazorpayScript() {
 }
 
 export default function CheckoutPage() {
-  const { items, subtotal, delivery, tax, total, clearCart, storeSettings } = useCart()
+  const { items, subtotal, delivery, tax, total, isFreeDelivery, freeDeliveryThreshold, clearCart, storeSettings } = useCart()
+  const remainingForFreeDelivery = freeDeliveryThreshold ? Math.max(0, freeDeliveryThreshold - subtotal) : 0
   const { user } = useSelector((state) => state.auth)
   const [paymentMethod, setPaymentMethod] = useState('razorpay')
   const [form, setForm] = useState(() => {
@@ -90,7 +97,9 @@ export default function CheckoutPage() {
     }
   }
 
-  const finalPayableTotal = Math.max(0, total - appliedDiscount)
+  const isCodFeeWaived = subtotal >= 220
+  const codFee = paymentMethod === 'cod' ? (isCodFeeWaived ? 0 : 8) : 0
+  const finalPayableTotal = Math.max(0, total - appliedDiscount + codFee)
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -326,6 +335,17 @@ export default function CheckoutPage() {
             </div>
           )}
 
+          {/* Free Delivery Bar */}
+          {freeDeliveryThreshold > 0 && (
+            <div className="mt-4 p-3.5 rounded-2xl bg-orange-50 border border-orange-200 text-xs font-bold text-orange-900 flex items-center justify-between">
+              {isFreeDelivery ? (
+                <span>🎉 Congratulations! You qualify for FREE Delivery!</span>
+              ) : (
+                <span>🚚 Add {formatPrice(remainingForFreeDelivery)} more for FREE Delivery!</span>
+              )}
+            </div>
+          )}
+
           <div className="mt-8 space-y-8">
             <div>
               <p className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-slate-600">Delivery details</p>
@@ -345,7 +365,7 @@ export default function CheckoutPage() {
             <div>
               <p className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-slate-600">Choose payment</p>
               <div className="space-y-3">
-                {paymentMethods.map((method) => (
+                {getPaymentMethods(subtotal).map((method) => (
                   <label key={method.id} className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition ${paymentMethod === method.id ? 'border-orange-400 bg-orange-50' : 'border-slate-200 bg-slate-50'}`}>
                     <input type="radio" name="paymentMethod" value={method.id} checked={paymentMethod === method.id} onChange={(event) => setPaymentMethod(event.target.value)} className="mt-1" />
                     <span>
@@ -401,9 +421,9 @@ export default function CheckoutPage() {
               )}
 
               {/* Sample coupons tip */}
-              <div className="text-[10px] text-slate-500 pt-1">
+              {/* <div className="text-[10px] text-slate-500 pt-1">
                 Try: <button type="button" onClick={() => { setCouponCode('BUN20'); setCouponNotice(null); }} className="text-amber-400 underline font-bold">BUN20</button> (20% OFF) or <button type="button" onClick={() => { setCouponCode('FIRST50'); setCouponNotice(null); }} className="text-amber-400 underline font-bold">FIRST50</button> (Flat ₹50 OFF)
-              </div>
+              </div> */}
             </div>
 
             {/* Calculations Breakdown */}
@@ -418,6 +438,13 @@ export default function CheckoutPage() {
               )}
 
               <div className="flex justify-between"><span>Delivery</span><span>{formatPrice(delivery)}</span></div>
+
+              {paymentMethod === 'cod' && !isCodFeeWaived && (
+                <div className="flex justify-between text-amber-400 font-bold">
+                  <span>COD Handling Fee</span>
+                  <span>+{formatPrice(8)}</span>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 flex items-center justify-between border-y border-slate-700 py-4">

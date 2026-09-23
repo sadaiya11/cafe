@@ -740,6 +740,7 @@ app.post('/api/db/orders', async (req, res) => {
       calculated = await recalculateOrderOnServer({
         items,
         couponCode,
+        paymentMethod,
         catalogProducts: dbProducts,
         storeSettings: serverSettingsData || null,
       })

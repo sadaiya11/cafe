@@ -20,7 +20,7 @@ export const SERVER_DEFAULT_SETTINGS = {
  * Authoritative Server-Side Order Recalculator Engine
  * Enforces product pricing, stock availability, quantity limits, coupon rules, tax and delivery fees on backend.
  */
-export async function recalculateOrderOnServer({ items = [], couponCode = '', catalogProducts = null, storeSettings = null }) {
+export async function recalculateOrderOnServer({ items = [], couponCode = '', paymentMethod = '', catalogProducts = null, storeSettings = null }) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error('Order must contain at least one valid food item.')
   }
@@ -110,12 +110,16 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', ca
   // Delivery Fee Calculation
   const delivery = rawSubtotal >= freeDeliveryThreshold ? 0 : deliveryFee
 
+  // COD Fee Calculation (₹8 for Cash on Delivery for orders under ₹220)
+  const isCod = String(paymentMethod || '').toUpperCase() === 'COD'
+  const codFee = (isCod && rawSubtotal < 220) ? 8 : 0
+
   // Tax Calculation
   const discountedSubtotal = Math.max(0, rawSubtotal - couponDiscount)
   const tax = Math.round(discountedSubtotal * taxRate * 100) / 100
 
   // Final Payable Total Calculation
-  const finalPayableTotal = Math.max(0, Math.round((discountedSubtotal + delivery + tax) * 100) / 100)
+  const finalPayableTotal = Math.max(0, Math.round((discountedSubtotal + delivery + tax + codFee) * 100) / 100)
   const amountInPaise = Math.round(finalPayableTotal * 100)
 
   return {
@@ -124,6 +128,7 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', ca
     couponDiscount,
     appliedCoupon,
     deliveryFee: delivery,
+    codFee,
     taxAmount: tax,
     finalPayableTotal,
     amountInPaise,
