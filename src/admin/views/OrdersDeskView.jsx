@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { clearAllAdminOrders } from '../services/adminApi';
 
 export default function OrdersDeskView({ 
   orders, 
@@ -9,6 +10,16 @@ export default function OrdersDeskView({
   isRefreshing,
 }) {
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirmClearOrders = async () => {
+    setIsDeleting(true);
+    await clearAllAdminOrders();
+    setIsDeleting(false);
+    setShowClearModal(false);
+    if (onRefresh) onRefresh();
+  };
 
   const statusOptions = [
     { id: 'ALL', label: 'All Orders', count: orders.length, color: 'bg-slate-800 text-slate-300' },
@@ -142,19 +153,29 @@ export default function OrdersDeskView({
       {/* Header and Filter Tabs */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold text-white tracking-tight">Order Processing Desk</h2>
             {onRefresh && (
               <button
                 type="button"
                 onClick={onRefresh}
                 disabled={isRefreshing}
-                className="flex items-center space-x-1.5 px-3 py-1 rounded-xl text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all disabled:opacity-50 shadow-md shadow-amber-500/10"
+                className="flex items-center space-x-1.5 px-3 py-1 rounded-xl text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all disabled:opacity-50 shadow-md shadow-amber-500/10 cursor-pointer"
               >
                 <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
-                <span>{isRefreshing ? 'Syncing Orders...' : 'Sync Orders'}</span>
+                <span>{isRefreshing ? 'Syncing...' : 'Sync Orders'}</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => setShowClearModal(true)}
+              className="flex items-center space-x-1.5 px-3 py-1 rounded-xl text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold transition-all cursor-pointer"
+              title="Clear all test / dummy orders before handover to client"
+            >
+              <span>🧹</span>
+              <span>Clear Dummy Orders</span>
+            </button>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Monitor real-time incoming orders, update kitchen & delivery status, and view customer locations.
@@ -302,6 +323,42 @@ export default function OrdersDeskView({
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal to Clear All Dummy Test Orders */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+          <div className="bg-slate-900 border border-rose-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-white">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h3 className="text-lg font-black text-rose-400">Delete All Dummy Orders?</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Prepare website for client handover.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-2xl border border-slate-800">
+              Are you sure you want to delete all <span className="font-bold text-amber-400">{orders.length} dummy/test orders</span>? This will permanently reset order history so your client gets a completely clean database.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowClearModal(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmClearOrders}
+                disabled={isDeleting}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black transition shadow-md shadow-rose-600/20 flex items-center gap-2"
+              >
+                <span>{isDeleting ? '⏳ Deleting...' : '🗑️ Yes, Delete All Dummy Orders'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

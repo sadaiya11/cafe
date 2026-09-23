@@ -196,6 +196,25 @@ export async function registerStaffMember(staffData) {
   }
 }
 
+export async function clearAllAdminOrders() {
+  try {
+    const rawRes = await fetch(`${API_BASE_URL}/api/db/orders`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    })
+    const response = handleStaffResponse(rawRes)
+    localStorage.removeItem(LOCAL_STORAGE_KEY)
+    if (response.ok) {
+      return await response.json()
+    }
+    const err = await response.json().catch(() => ({}))
+    return { success: false, error: err.error || 'Failed to clear orders.' }
+  } catch (err) {
+    localStorage.removeItem(LOCAL_STORAGE_KEY)
+    return { success: true, message: 'All local dummy test orders cleared.' }
+  }
+}
+
 export default {
   fetchAdminOrders,
   fetchAdminUsers,
@@ -203,5 +222,6 @@ export default {
   updateUserLoginPermission,
   deleteAdminUser,
   registerStaffMember,
+  clearAllAdminOrders,
 }
 

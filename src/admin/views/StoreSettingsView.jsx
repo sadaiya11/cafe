@@ -670,6 +670,39 @@ export default function StoreSettingsView() {
         )}
       </div>
 
+      {/* 5. Client Handover & Data Reset Section */}
+      <div className="rounded-3xl border border-rose-500/30 bg-rose-950/20 p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">🧹</span>
+          <div>
+            <h3 className="text-base font-black text-rose-400">Client Project Handover & Order Reset</h3>
+            <p className="text-xs text-slate-400">Clear all dummy test orders before transferring website access to your client.</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+          <div>
+            <div className="text-xs font-bold text-slate-200">Delete All Dummy Orders</div>
+            <div className="text-[11px] text-slate-400 mt-0.5">Removes test orders from PostgreSQL database & local storage so the client starts with a 100% clean dashboard.</div>
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              if (window.confirm('Are you sure you want to delete ALL dummy test orders before handing over to your client?')) {
+                const { clearAllAdminOrders } = await import('../services/adminApi')
+                await clearAllAdminOrders()
+                alert('All dummy test orders deleted successfully! The order database is now clean for your client.')
+                window.location.reload()
+              }
+            }}
+            className="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition shadow-md whitespace-nowrap cursor-pointer"
+          >
+            🗑️ Clear Dummy Orders Now
+          </button>
+        </div>
+      </div>
+
     </div>
   )
 }

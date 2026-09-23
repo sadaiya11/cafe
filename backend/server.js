@@ -831,6 +831,18 @@ app.patch('/api/db/orders/:orderId/status', authenticateRequest, requireStaffOrA
   }
 })
 
+// Route: DELETE /api/db/orders - Delete All Orders for Client Handover
+app.delete('/api/db/orders', authenticateRequest, requireStaffOrAdmin, async (req, res) => {
+  try {
+    await prisma.orderItem.deleteMany({}).catch(() => null)
+    await prisma.order.deleteMany({})
+    res.json({ success: true, message: 'All dummy orders have been cleared successfully.' })
+  } catch (error) {
+    console.error('Error clearing orders:', error)
+    res.status(500).json({ error: 'Failed to clear orders from database.', details: error.message })
+  }
+})
+
 /**
  * Route: POST /api/payments/create-order
  * Description: Create a new Razorpay order (or mock order if secret key not set) with server-calculated amount

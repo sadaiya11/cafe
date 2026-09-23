@@ -593,6 +593,26 @@ async function updateOrderStatusInDb(orderId, status) {
   return result
 }
 
+async function deleteAllOrders(authUser) {
+  if (!authUser || !['ADMIN', 'STAFF'].includes(String(authUser.role).toUpperCase())) {
+    return { status: 403, body: { error: 'Admin or Staff session required to clear orders.' } }
+  }
+
+  let result = await supabaseRequest('orders?orderId=neq.null', {
+    method: 'DELETE',
+    headers: { Prefer: 'return=representation' },
+  })
+
+  if (result.status >= 400) {
+    result = await supabaseRequest('orders?status=neq.null', {
+      method: 'DELETE',
+      headers: { Prefer: 'return=representation' },
+    })
+  }
+
+  return { status: 200, body: { success: true, message: 'All dummy orders have been deleted successfully.' } }
+}
+
 async function registerAuthUser(body) {
   const { name, email, password, role = 'CUSTOMER', adminSecretKey } = body || {}
   if (!name || !name.trim() || !email || !email.trim() || !password || !password.trim()) {
@@ -1511,6 +1531,7 @@ export default async function handler(req, res) {
     const isStaffRoute = (productSlug && ['PUT', 'DELETE'].includes(req.method))
       || route.endsWith('/db/product-images')
       || Boolean(orderStatusId)
+      || (route.endsWith('/db/orders') && req.method === 'DELETE')
     const isAuthenticatedRoute = isAdminUsersRoute
       || isStaffRoute
       || (route.endsWith('/db/orders') && req.method === 'GET')
@@ -1581,17 +1602,19 @@ export default async function handler(req, res) {
                                     ? await deleteProduct(decodeURIComponent(productSlug))
                                     : orderStatusId && (req.method === 'PATCH' || req.method === 'PUT')
                                       ? await updateOrderStatusInDb(orderStatusId, req.body?.status)
-                                      : route.endsWith('/db/orders') && req.method === 'GET'
-                                        ? await getOrders(requestUrl.searchParams, req.authUser)
-                                        : route.endsWith('/db/orders') && req.method === 'POST'
-                                          ? await saveOrder(req.body || {})
-                                          : route.endsWith('/payments/create-order') && req.method === 'POST'
-                                            ? await createRazorpayOrder(req.body || {})
-                                            : route.endsWith('/payments/verify') && req.method === 'POST'
-                                              ? await verifyPayment(req.body || {})
-                                              : route.endsWith('/payments/webhook') && req.method === 'POST'
-                                                ? await handleRazorpayWebhook(req.body || {}, req.headers || {})
-                                                : route.endsWith('/db/coupons') && req.method === 'GET'
+                                       : route.endsWith('/db/orders') && req.method === 'GET'
+                                         ? await getOrders(requestUrl.searchParams, req.authUser)
+                                         : route.endsWith('/db/orders') && req.method === 'DELETE'
+                                           ? await deleteAllOrders(req.authUser)
+                                           : route.endsWith('/db/orders') && req.method === 'POST'
+                                             ? await saveOrder(req.body || {})
+                                             : route.endsWith('/payments/create-order') && req.method === 'POST'
+                                               ? await createRazorpayOrder(req.body || {})
+                                               : route.endsWith('/payments/verify') && req.method === 'POST'
+                                                 ? await verifyPayment(req.body || {})
+                                                 : route.endsWith('/payments/webhook') && req.method === 'POST'
+                                                   ? await handleRazorpayWebhook(req.body || {}, req.headers || {})
+                                                   : route.endsWith('/db/coupons') && req.method === 'GET'
                                                   ? await getCoupons()
                                                   : route.endsWith('/db/coupons') && (req.method === 'PUT' || req.method === 'POST')
                                                     ? await saveCoupons(req.body || [])
