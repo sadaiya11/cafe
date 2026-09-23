@@ -34,7 +34,7 @@ function loadRazorpayScript() {
 }
 
 export default function CheckoutPage() {
-  const { items, subtotal, delivery, tax, total, isFreeDelivery, freeDeliveryThreshold, clearCart, storeSettings } = useCart()
+  const { items, addItem, subtotal, delivery, tax, total, isFreeDelivery, freeDeliveryThreshold, clearCart, storeSettings } = useCart()
   const remainingForFreeDelivery = freeDeliveryThreshold ? Math.max(0, freeDeliveryThreshold - subtotal) : 0
   const { user } = useSelector((state) => state.auth)
   const [paymentMethod, setPaymentMethod] = useState('razorpay')
@@ -97,9 +97,23 @@ export default function CheckoutPage() {
     }
   }
 
+  const [hasPreviousOrders] = useState(() => {
+    try {
+      const stored = localStorage.getItem('bun_maska_user_orders')
+      const parsed = stored ? JSON.parse(stored) : []
+      return Array.isArray(parsed) && parsed.length > 0
+    } catch {
+      return false
+    }
+  })
+
+  const classicBunItem = items.find((i) => (i.slug || '').toLowerCase() === 'classic-bun-maska')
+  const isFirstOrder = !hasPreviousOrders
+  const firstOrderFreeBunDiscount = (isFirstOrder && classicBunItem) ? Number(classicBunItem.price || 35) : 0
+
   const isCodFeeWaived = subtotal >= 220
   const codFee = paymentMethod === 'cod' ? (isCodFeeWaived ? 0 : 8) : 0
-  const finalPayableTotal = Math.max(0, total - appliedDiscount + codFee)
+  const finalPayableTotal = Math.max(0, total - appliedDiscount - firstOrderFreeBunDiscount + codFee)
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -346,6 +360,28 @@ export default function CheckoutPage() {
             </div>
           )}
 
+          {/* First Order Free Classic Bun Maska Banner */}
+          {isFirstOrder && !classicBunItem && (
+            <div className="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">🎁</span>
+                <div>
+                  <strong className="text-sm font-bold text-amber-950 block">First Order Special Gift!</strong>
+                  <span>Get 1 FREE Classic Bun Maska on your first online order.</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  addItem({ slug: 'classic-bun-maska', title: 'Classic Bun Maska', category: 'Bun Maska', price: 35, image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=900&q=80' }, 'standard', 1)
+                }}
+                className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition active:scale-95 whitespace-nowrap"
+              >
+                ➕ Add Free Classic Bun Maska
+              </button>
+            </div>
+          )}
+
           <div className="mt-8 space-y-8">
             <div>
               <p className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-slate-600">Delivery details</p>
@@ -434,6 +470,13 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-emerald-400 font-bold">
                   <span>Coupon Discount</span>
                   <span>-{formatPrice(appliedDiscount)}</span>
+                </div>
+              )}
+
+              {firstOrderFreeBunDiscount > 0 && (
+                <div className="flex justify-between text-emerald-400 font-bold">
+                  <span>🎁 1st Order Bonus (Free Classic Bun Maska)</span>
+                  <span>-{formatPrice(firstOrderFreeBunDiscount)}</span>
                 </div>
               )}
 

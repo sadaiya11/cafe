@@ -18,6 +18,22 @@ const defaultCoupons = [
     active: true,
   },
   {
+    code: 'FIRSTBUN',
+    type: 'FLAT',
+    value: 35,
+    minOrder: 0,
+    description: 'Free Classic Bun Maska on 1st Order (Save ₹35)',
+    active: true,
+  },
+  {
+    code: 'FIRSTFREE',
+    type: 'FLAT',
+    value: 35,
+    minOrder: 0,
+    description: 'Free Classic Bun Maska on 1st Order (Save ₹35)',
+    active: true,
+  },
+  {
     code: 'FREESHIP',
     type: 'FLAT',
     value: 40,

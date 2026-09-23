@@ -5,10 +5,23 @@ import SEO from '../components/SEO'
 const formatPrice = (price) => `₹${price.toFixed(2)}`
 
 export default function CartPage() {
-  const { items, subtotal, delivery, tax, taxRate, isFreeDelivery, freeDeliveryThreshold, total, itemCount, updateQuantity, removeItem, storeSettings } = useCart()
+  const { items, addItem, subtotal, delivery, tax, taxRate, isFreeDelivery, freeDeliveryThreshold, total, itemCount, updateQuantity, removeItem, storeSettings } = useCart()
 
   const isStoreOpen = storeSettings?.isStoreOpen !== false
   const remainingForFreeDelivery = freeDeliveryThreshold ? Math.max(0, freeDeliveryThreshold - subtotal) : 0
+
+  const hasPreviousOrders = (() => {
+    try {
+      const stored = localStorage.getItem('bun_maska_user_orders')
+      const parsed = stored ? JSON.parse(stored) : []
+      return Array.isArray(parsed) && parsed.length > 0
+    } catch {
+      return false
+    }
+  })()
+
+  const isFirstOrder = !hasPreviousOrders
+  const hasClassicBun = items.some((i) => (i.slug || '').toLowerCase() === 'classic-bun-maska')
 
   return (
     <div className="grid gap-8 pb-10 xl:grid-cols-[1.5fr_0.8fr]">
@@ -30,6 +43,35 @@ export default function CartPage() {
                 ) : (
                   <span>🚚 Add {formatPrice(remainingForFreeDelivery)} more for FREE Delivery!</span>
                 )}
+              </div>
+            )}
+
+            {/* First Order Free Classic Bun Maska Banner */}
+            {isFirstOrder && !hasClassicBun && (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🎁</span>
+                  <div>
+                    <strong className="text-sm font-bold text-amber-950 block">First Order Special Gift!</strong>
+                    <span>Get 1 FREE Classic Bun Maska on your first online order.</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    addItem({ slug: 'classic-bun-maska', title: 'Classic Bun Maska', category: 'Bun Maska', price: 35, image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=900&q=80' }, 'standard', 1)
+                  }}
+                  className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition active:scale-95 whitespace-nowrap"
+                >
+                  ➕ Claim Free Classic Bun Maska
+                </button>
+              </div>
+            )}
+
+            {isFirstOrder && hasClassicBun && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-900 flex items-center gap-2">
+                <span className="text-lg">🎉</span>
+                <span>First Order Gift Applied! 1x Classic Bun Maska will be 100% FREE at checkout!</span>
               </div>
             )}
 

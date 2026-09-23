@@ -8,6 +8,8 @@ export const SERVER_COUPONS = [
   { code: 'BUN20', type: 'PERCENT', value: 20, minOrder: 150 },
   { code: 'FIRST50', type: 'FLAT', value: 50, minOrder: 200 },
   { code: 'FREESHIP', type: 'FLAT', value: 40, minOrder: 100 },
+  { code: 'FIRSTBUN', type: 'FLAT', value: 35, minOrder: 0 },
+  { code: 'FIRSTFREE', type: 'FLAT', value: 35, minOrder: 0 },
 ]
 
 export const SERVER_DEFAULT_SETTINGS = {
@@ -20,7 +22,7 @@ export const SERVER_DEFAULT_SETTINGS = {
  * Authoritative Server-Side Order Recalculator Engine
  * Enforces product pricing, stock availability, quantity limits, coupon rules, tax and delivery fees on backend.
  */
-export async function recalculateOrderOnServer({ items = [], couponCode = '', paymentMethod = '', catalogProducts = null, storeSettings = null }) {
+export async function recalculateOrderOnServer({ items = [], couponCode = '', paymentMethod = '', isFirstOrder = false, catalogProducts = null, storeSettings = null }) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error('Order must contain at least one valid food item.')
   }
@@ -82,6 +84,15 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', pa
     })
   }
 
+  // Calculate First Order Free Classic Bun Maska Discount
+  let firstOrderFreeBunDiscount = 0
+  if (isFirstOrder) {
+    const freeBunItem = validatedItems.find((i) => (i.slug || '').toLowerCase() === 'classic-bun-maska')
+    if (freeBunItem) {
+      firstOrderFreeBunDiscount = Number(freeBunItem.price || 35)
+    }
+  }
+
   // Calculate Coupon Discount
   let couponDiscount = 0
   let appliedCoupon = null
@@ -115,7 +126,7 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', pa
   const codFee = (isCod && rawSubtotal < 220) ? 8 : 0
 
   // Tax Calculation
-  const discountedSubtotal = Math.max(0, rawSubtotal - couponDiscount)
+  const discountedSubtotal = Math.max(0, rawSubtotal - couponDiscount - firstOrderFreeBunDiscount)
   const tax = Math.round(discountedSubtotal * taxRate * 100) / 100
 
   // Final Payable Total Calculation
@@ -126,6 +137,7 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', pa
     items: validatedItems,
     subtotal: rawSubtotal,
     couponDiscount,
+    firstOrderFreeBunDiscount,
     appliedCoupon,
     deliveryFee: delivery,
     codFee,
