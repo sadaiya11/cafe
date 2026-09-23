@@ -167,38 +167,38 @@ export default function ProductDetailPage() {
       <section className="grid gap-10 rounded-[2.5rem] bg-white p-6 shadow-sm shadow-slate-200 lg:grid-cols-2 lg:p-10">
         <ProductGallery images={selectedVariant.gallery ?? [selectedVariant.image]} alt={product.title} />
 
-        <div className="flex flex-col justify-between space-y-6">
-          <div className="space-y-4">
-            <span className="inline-block rounded-full bg-orange-100 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-orange-600">
+        <div className="flex flex-col space-y-4 lg:space-y-5">
+          <div className="space-y-3">
+            <span className="inline-block rounded-full bg-orange-100 px-3.5 py-1 text-[11px] font-black uppercase tracking-widest text-orange-600">
               {product.category}
             </span>
             
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">{product.title}</h1>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 md:text-3xl lg:text-4xl">{product.title}</h1>
             
             {/* Average Rating Score */}
             <div className="flex items-center space-x-2">
-              <div className="flex text-amber-400 text-lg">
+              <div className="flex text-amber-400 text-base">
                 {'★'.repeat(Math.round(avgRating))}
               </div>
-              <span className="font-extrabold text-slate-900 text-sm">{avgRating} / 5</span>
+              <span className="font-extrabold text-slate-900 text-xs">{avgRating} / 5</span>
               <span className="text-xs text-slate-400">({reviews.length} customer reviews)</span>
             </div>
 
-            <p className="text-3xl font-black text-orange-600">{formatPrice(selectedVariant.price)}</p>
-            <p className="text-base leading-relaxed text-slate-600">{product.description}</p>
+            <p className="text-2xl font-black text-orange-600 md:text-3xl">{formatPrice(selectedVariant.price)}</p>
+            <p className="text-sm leading-relaxed text-slate-600 md:text-base">{product.description}</p>
           </div>
 
-          <div className="space-y-6 border-t border-slate-100 pt-6">
+          <div className="space-y-4 border-t border-slate-100 pt-4">
             {/* Variants Selector */}
             {product.variants && product.variants.length > 1 && (
               <div>
-                <label className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block mb-2">Select Variant</label>
+                <label className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 block mb-1.5">Select Variant</label>
                 <div className="flex flex-wrap gap-2">
                   {product.variants.map((variant) => (
                     <button
                       key={variant.size}
                       onClick={() => setSelectedSize(variant.size)}
-                      className={`rounded-2xl border px-5 py-2.5 text-xs font-bold transition ${
+                      className={`rounded-xl border px-4 py-2 text-xs font-bold transition ${
                         selectedSize === variant.size
                           ? 'border-orange-500 bg-orange-500 text-white shadow-md shadow-orange-200'
                           : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-orange-300'
@@ -212,22 +212,22 @@ export default function ProductDetailPage() {
             )}
 
             {/* Quantity */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <label className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Quantity</label>
               <QuantitySelector quantity={quantity} onDecrease={() => setQuantity((q) => Math.max(1, q - 1))} onIncrease={() => setQuantity((q) => q + 1)} />
             </div>
 
             {/* Action Buttons */}
-            <div className="grid gap-3 sm:grid-cols-2 pt-2">
+            <div className="grid gap-3 sm:grid-cols-2 pt-1">
               <button
                 onClick={handleAddToCart}
-                className="w-full rounded-full border-2 border-orange-500 bg-orange-50 py-3.5 text-sm font-extrabold text-orange-600 transition hover:bg-orange-100 active:scale-95"
+                className="w-full rounded-full border-2 border-orange-500 bg-orange-50 py-3 text-sm font-extrabold text-orange-600 transition hover:bg-orange-100 active:scale-95 shadow-sm"
               >
                 🛒 Add to Cart
               </button>
               <button
                 onClick={handleBuyNow}
-                className="w-full rounded-full bg-orange-500 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-orange-600 active:scale-95"
+                className="w-full rounded-full bg-orange-500 py-3 text-sm font-extrabold text-white shadow-md shadow-orange-200 transition hover:bg-orange-600 active:scale-95"
               >
                 ⚡ Order Now
               </button>
