@@ -20,15 +20,17 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const navigate = useNavigate()
   const { addItem } = useCart()
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (query = '') => {
     setLoading(true)
     setError(null)
 
     try {
-      const data = await getOrders(user?.email || '')
+      const q = query !== undefined && query !== '' ? query : (searchQuery || user?.email || '')
+      const data = await getOrders(q)
       setOrders(data)
     } catch (err) {
       console.warn('Using fallback orders due to network/server:', err.message)
@@ -101,6 +103,32 @@ export default function OrdersPage() {
           title="Live Orders & Tracking"
           subtitle="Track your live food order status in real-time from our kitchen."
         />
+
+        {/* Guest & Registered Customer Order Lookup Bar */}
+        <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+          <label className="text-xs font-bold text-slate-700 block">🔍 Order Lookup (For Guest & Registered Customers)</label>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              fetchOrders(searchQuery)
+            }}
+            className="flex flex-col sm:flex-row gap-2"
+          >
+            <input
+              type="text"
+              placeholder="Enter your Order ID (e.g. BM-1729...), Phone Number, or Email"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-orange-500"
+            />
+            <button
+              type="submit"
+              className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-2 rounded-xl text-xs transition shadow-sm"
+            >
+              Search Order
+            </button>
+          </form>
+        </div>
 
         {loading ? (
           <div className="py-12 text-center text-slate-500 font-semibold">

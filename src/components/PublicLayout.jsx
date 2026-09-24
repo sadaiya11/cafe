@@ -95,23 +95,11 @@ export default function PublicLayout() {
             }
           />
 
+          {/* Checkout & Orders: Accessible to both Guest and Logged-in Customers */}
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/orders" element={<OrdersPage />} />
+
           {/* Protected Routes: Accessible only when logged in */}
-          <Route
-            path="/checkout"
-            element={
-              <ProtectedRoute>
-                <CheckoutPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/orders"
-            element={
-              <ProtectedRoute>
-                <OrdersPage />
-              </ProtectedRoute>
-            }
-          />
           <Route
             path="/profile"
             element={

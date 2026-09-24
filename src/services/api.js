@@ -182,10 +182,14 @@ export async function getOrders(userEmail = '') {
   const uniqueLocal = localOrders.filter((o) => !apiOrderIds.has(o.orderId || o.id))
   let combined = [...orders, ...uniqueLocal]
 
-  if (userEmail) {
+  if (userEmail && String(userEmail).trim()) {
+    const q = String(userEmail).trim().toLowerCase()
     combined = combined.filter((o) => {
       const cust = o.customer || {}
-      return !cust.email || cust.email.toLowerCase() === userEmail.toLowerCase()
+      const orderId = String(o.orderId || o.id || '').toLowerCase()
+      const email = String(cust.email || '').toLowerCase()
+      const phone = String(cust.phone || '').toLowerCase()
+      return orderId.includes(q) || email.includes(q) || phone.includes(q)
     })
   }
 
