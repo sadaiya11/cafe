@@ -66,7 +66,7 @@ export default function DashboardPage() {
 
       <section className="grid gap-4 rounded-[2rem] bg-white p-4 shadow-sm shadow-slate-200 md:grid-cols-3 md:p-6">
         {[
-          { label: 'Free Delivery', value: 'On orders above ₹499' },
+          { label: 'Free Delivery', value: 'On orders above ₹220' },
           { label: 'Freshly Made', value: 'Prepared daily in-house' },
           { label: 'Open Daily', value: '11:00 AM - 12:00 PM' },
         ].map((item) => (

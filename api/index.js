@@ -624,9 +624,10 @@ async function registerAuthUser(body) {
     return { status: 400, body: { error: 'Password must be at least 4 characters long.' } }
   }
 
-  const requestedRole = String(role).toUpperCase()
-  if (!['ADMIN', 'STAFF'].includes(requestedRole)) {
-    return { status: 400, body: { error: 'Admin accounts can only use the ADMIN or STAFF role.' } }
+  const requestedRole = String(role || 'CUSTOMER').toUpperCase()
+  const allowedRoles = ['CUSTOMER', 'STAFF', 'ADMIN']
+  if (!allowedRoles.includes(requestedRole)) {
+    return { status: 400, body: { error: 'Invalid account role specified.' } }
   }
   const isRegisteringAdmin = requestedRole === 'ADMIN'
   const expectedAdminSecret = process.env.ADMIN_SECRET_KEY

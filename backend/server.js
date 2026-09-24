@@ -144,9 +144,10 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 4 characters long.' })
     }
 
-    const requestedRole = String(role).toUpperCase()
-    if (!['ADMIN', 'STAFF'].includes(requestedRole)) {
-      return res.status(400).json({ error: 'Admin accounts can only use the ADMIN or STAFF role.' })
+    const requestedRole = String(role || 'CUSTOMER').toUpperCase()
+    const allowedRoles = ['CUSTOMER', 'STAFF', 'ADMIN']
+    if (!allowedRoles.includes(requestedRole)) {
+      return res.status(400).json({ error: 'Invalid account role specified.' })
     }
     const isRegisteringAdmin = requestedRole === 'ADMIN'
     const expectedAdminSecret = process.env.ADMIN_SECRET_KEY
