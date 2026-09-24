@@ -68,8 +68,8 @@ export function CartProvider({ children }) {
 
   const totals = useMemo(() => {
     const subtotal = items.reduce((sum, item) => sum + (Number(item.price) || 0) * item.quantity, 0)
-    const baseDeliveryFee = Number(storeSettings.deliveryFee ?? 4.99)
-    const freeThreshold = Number(storeSettings.freeDeliveryThreshold ?? 500)
+    const baseDeliveryFee = Number(storeSettings.deliveryFee ?? 20)
+    const freeThreshold = Number(storeSettings.freeDeliveryThreshold ?? 220)
     const isFreeDelivery = freeThreshold > 0 && subtotal >= freeThreshold
     const delivery = items.length ? (isFreeDelivery ? 0 : baseDeliveryFee) : 0
     const tax = 0

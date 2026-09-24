@@ -88,7 +88,7 @@ export default function HeroSlider() {
               </div>
               <div className="flex items-center justify-between border-b border-white/20 pb-2.5">
                 <span>Free Delivery</span>
-                <span className="font-bold text-orange-300">Orders &gt; ₹{storeSettings.freeDeliveryThreshold || 500}</span>
+                <span className="font-bold text-orange-300">Orders &gt; ₹{storeSettings.freeDeliveryThreshold || 220}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Location</span>

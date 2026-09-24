@@ -50,9 +50,9 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
     { label: 'Home', path: '/dashboard' },
     { label: 'Products', path: '/product' },
     { label: 'Cart', path: '/cart' },
+    { label: 'Track Order', path: '/orders' },
     ...(isAuthenticated
       ? [
-        { label: 'Orders', path: '/orders' },
         { label: 'Profile', path: '/profile' },
       ]
       : []),

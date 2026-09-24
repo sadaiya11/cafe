@@ -181,14 +181,14 @@ export default function OrdersPage() {
                       <span className="text-xl font-black text-orange-600">
                         {formatPrice(order.amount || order.totalAmount || order.total)}
                       </span>
-                      <button
+                      {/* <button
                         onClick={() => handleReorder(order)}
                         className="rounded-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-black px-4 py-2 flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
                         title="Add items back to cart"
                       >
                         <span>🔄</span>
                         <span>Reorder</span>
-                      </button>
+                      </button> */}
                     </div>
                   </div>
 

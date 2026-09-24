@@ -126,6 +126,7 @@ export default function PublicLayout() {
             <h3 className="text-sm font-bold uppercase tracking-wider text-orange-300">Explore</h3>
             <div className="mt-3 grid gap-2 text-sm">
               <Link to="/product" className="hover:text-white">Our Menu</Link>
+              <Link to="/orders" className="hover:text-white">Track Order</Link>
               <Link to="/offers" className="hover:text-white">Special Offers</Link>
               <Link to="/about" className="hover:text-white">About Us</Link>
               <Link to="/contact" className="hover:text-white">Contact Us</Link>

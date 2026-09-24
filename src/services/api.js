@@ -162,7 +162,7 @@ export async function getOrders(userEmail = '') {
   let orders = []
 
   try {
-    const response = handleCustomerResponse(await fetch(`${API_BASE_URL}/api/db/orders${query}`, { headers: authHeaders() }))
+    const response = await fetch(`${API_BASE_URL}/api/db/orders${query}`, { headers: authHeaders() })
     if (response.ok) {
       orders = await response.json()
     }

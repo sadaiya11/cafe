@@ -4,9 +4,9 @@ const HERO_SLIDES_KEY = 'bun_maska_hero_slides'
 export const DEFAULT_SETTINGS = {
   isStoreOpen: true,
   storeClosedNotice: 'Our cafe daily operating hours: 11:00 AM - 11:30 PM.',
-  deliveryFee: 4.99,
-  taxRate: 0.08, // 8% GST/Tax
-  freeDeliveryThreshold: 500,
+  deliveryFee: 20,
+  taxRate: 0,
+  freeDeliveryThreshold: 220,
   storeName: 'Bun Maska Café',
   phone: '8085700750',
   email: 'hello@bunmaskacafe.com',

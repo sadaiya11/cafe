@@ -13,16 +13,16 @@ export const SERVER_COUPONS = [
 ]
 
 export const SERVER_DEFAULT_SETTINGS = {
-  deliveryFee: 4.99,
-  taxRate: 0.08,
-  freeDeliveryThreshold: 500,
+  deliveryFee: 20,
+  taxRate: 0,
+  freeDeliveryThreshold: 220,
 }
 
 /**
  * Authoritative Server-Side Order Recalculator Engine
  * Enforces product pricing, stock availability, quantity limits, coupon rules, tax and delivery fees on backend.
  */
-export async function recalculateOrderOnServer({ items = [], couponCode = '', paymentMethod = '', isFirstOrder = false, catalogProducts = null, storeSettings = null }) {
+export async function recalculateOrderOnServer({ items = [], couponCode = '', paymentMethod = '', isFirstOrder = false, customer = null, catalogProducts = null, storeSettings = null, dbOrders = null }) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error('Order must contain at least one valid food item.')
   }
@@ -36,9 +36,9 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', pa
     ...(storeSettings || {}),
   }
 
-  const taxRate = Number(settings.taxRate) || 0.08
-  const deliveryFee = Number(settings.deliveryFee) || 4.99
-  const freeDeliveryThreshold = Number(settings.freeDeliveryThreshold) || 500
+  const taxRate = settings.taxRate !== undefined && settings.taxRate !== null ? Number(settings.taxRate) : 0
+  const deliveryFee = settings.deliveryFee !== undefined && settings.deliveryFee !== null ? Number(settings.deliveryFee) : 20
+  const freeDeliveryThreshold = settings.freeDeliveryThreshold !== undefined && settings.freeDeliveryThreshold !== null ? Number(settings.freeDeliveryThreshold) : 220
 
   const validatedItems = []
   let rawSubtotal = 0
@@ -84,9 +84,27 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', pa
     })
   }
 
+  // Authoritative Check: Validate First Order eligibility by customer phone & email against database
+  let effectiveFirstOrder = isFirstOrder !== undefined && isFirstOrder !== null ? Boolean(isFirstOrder) : true
+  if (customer && Array.isArray(dbOrders)) {
+    const custPhone = String(customer.phone || customer.mobile || '').trim().toLowerCase()
+    const custEmail = String(customer.email || '').trim().toLowerCase()
+    if (custPhone || custEmail) {
+      const hasPreviousOrder = dbOrders.some((o) => {
+        const c = o.customer && typeof o.customer === 'object' ? o.customer : {}
+        const p = String(c.phone || c.mobile || '').trim().toLowerCase()
+        const e = String(c.email || '').trim().toLowerCase()
+        return (custPhone && p && p === custPhone) || (custEmail && e && e === custEmail)
+      })
+      if (hasPreviousOrder) {
+        effectiveFirstOrder = false
+      }
+    }
+  }
+
   // Calculate First Order Free Classic Bun Maska Discount
   let firstOrderFreeBunDiscount = 0
-  if (isFirstOrder) {
+  if (effectiveFirstOrder) {
     const freeBunItem = validatedItems.find((i) => (i.slug || '').toLowerCase() === 'classic-bun-maska')
     if (freeBunItem) {
       firstOrderFreeBunDiscount = Number(freeBunItem.price || 35)

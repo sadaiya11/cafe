@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux'
 import SEO from '../components/SEO'
 import DemoPaymentModal from '../components/DemoPaymentModal'
 import { useCart } from '../context/useCart'
-import { createOrder } from '../services/api'
+import { createOrder, getOrders } from '../services/api'
 import { validateCoupon } from '../services/couponService'
 import { isStoreCurrentlyOpen } from '../services/storeSettingsService'
 import { notifyOrderConfirmed, notifyPaymentSuccess, notifyPaymentFailed } from '../services/customerNotificationService'
@@ -39,42 +39,37 @@ export default function CheckoutPage() {
   const { user } = useSelector((state) => state.auth)
   const [paymentMethod, setPaymentMethod] = useState('razorpay')
   const [form, setForm] = useState(() => {
+    const storageKey = user?.email ? `bun_maska_saved_address_${user.email.toLowerCase()}` : 'bun_maska_saved_address_guest'
+    let saved = null
     try {
-      const saved = localStorage.getItem('bun_maska_saved_address')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        return {
-          name: parsed.name || user?.name || '',
-          phone: parsed.phone || user?.phone || user?.mobile || '',
-          address: parsed.address || user?.address || '',
-          city: parsed.city || user?.city || 'Guna',
-          zip: parsed.zip || user?.zip || '',
-          notes: parsed.notes || '',
-        }
-      }
+      const raw = localStorage.getItem(storageKey)
+      if (raw) saved = JSON.parse(raw)
     } catch {
       // ignore
     }
+
     return {
-      name: user?.name || '',
-      phone: user?.phone || user?.mobile || '',
-      address: user?.address || '',
-      city: user?.city || 'Guna',
-      zip: user?.zip || '',
-      notes: '',
+      name: user?.name || user?.fullName || saved?.name || '',
+      phone: user?.phone || user?.mobile || saved?.phone || '',
+      email: user?.email || saved?.email || '',
+      address: user?.address || saved?.address || '',
+      city: user?.city || saved?.city || 'Guna',
+      zip: user?.zip || saved?.zip || '',
+      notes: saved?.notes || '',
     }
   })
 
   useEffect(() => {
     if (user) {
-      setForm((prev) => ({
-        ...prev,
-        name: prev.name || user.name || '',
-        phone: prev.phone || user.phone || user.mobile || '',
-        address: prev.address || user.address || '',
-        city: prev.city || user.city || 'Guna',
-        zip: prev.zip || user.zip || '',
-      }))
+      setForm({
+        name: user.name || user.fullName || '',
+        phone: user.phone || user.mobile || '',
+        email: user.email || '',
+        address: user.address || '',
+        city: user.city || 'Guna',
+        zip: user.zip || '',
+        notes: '',
+      })
     }
   }, [user])
 
@@ -97,7 +92,7 @@ export default function CheckoutPage() {
     }
   }
 
-  const [hasPreviousOrders] = useState(() => {
+  const [hasPreviousOrders, setHasPreviousOrders] = useState(() => {
     try {
       const stored = localStorage.getItem('bun_maska_user_orders')
       const parsed = stored ? JSON.parse(stored) : []
@@ -106,6 +101,42 @@ export default function CheckoutPage() {
       return false
     }
   })
+
+  // Dynamically check database for prior orders using phone number or email
+  useEffect(() => {
+    let active = true
+    const checkUserOrderHistory = async () => {
+      const phoneToTest = String(form.phone || user?.phone || user?.mobile || '').trim()
+      const emailToTest = String(form.email || user?.email || '').trim()
+
+      if (!phoneToTest && !emailToTest) return
+
+      try {
+        if (phoneToTest && phoneToTest.length >= 5) {
+          const phoneOrders = await getOrders(phoneToTest)
+          if (active && Array.isArray(phoneOrders) && phoneOrders.length > 0) {
+            setHasPreviousOrders(true)
+            return
+          }
+        }
+        if (emailToTest && emailToTest.includes('@')) {
+          const emailOrders = await getOrders(emailToTest)
+          if (active && Array.isArray(emailOrders) && emailOrders.length > 0) {
+            setHasPreviousOrders(true)
+            return
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to verify customer order history:', err)
+      }
+    }
+
+    const timer = setTimeout(checkUserOrderHistory, 300)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [form.phone, form.email, user])
 
   const classicBunItem = items.find((i) => (i.slug || '').toLowerCase() === 'classic-bun-maska')
   const isFirstOrder = !hasPreviousOrders
@@ -122,7 +153,8 @@ export default function CheckoutPage() {
     setForm((current) => {
       const updated = { ...current, [name]: value, city: 'Guna' }
       try {
-        localStorage.setItem('bun_maska_saved_address', JSON.stringify(updated))
+        const storageKey = user?.email ? `bun_maska_saved_address_${user.email.toLowerCase()}` : 'bun_maska_saved_address_guest'
+        localStorage.setItem(storageKey, JSON.stringify(updated))
       } catch (err) {
         console.warn('Failed to save address:', err)
       }
@@ -132,7 +164,12 @@ export default function CheckoutPage() {
 
   // Create Order using API Service with Server-Side Recalculation
   const completeOrder = async (message, orderId, payment = {}) => {
-    const customer = { ...form, email: user?.email || form.email || '' }
+    const customer = {
+      ...form,
+      name: user?.name || user?.fullName || form.name || '',
+      phone: user?.phone || user?.mobile || form.phone || '',
+      email: user?.email || form.email || '',
+    }
     const minimalItems = items.map((i) => ({
       slug: i.slug || i.id,
       size: i.size || i.sizeLabel || 'standard',
@@ -145,6 +182,7 @@ export default function CheckoutPage() {
       customer,
       items: minimalItems,
       couponCode,
+      isFirstOrder,
       paymentId: payment.paymentId,
       paymentMethod: paymentMethod === 'cod' ? 'COD' : 'RAZORPAY',
       paymentStatus: paymentMethod === 'cod' ? 'PENDING' : 'SUCCESS',
@@ -209,6 +247,7 @@ export default function CheckoutPage() {
           items: minimalItems,
           couponCode,
           customer,
+          isFirstOrder,
           currency: 'INR',
         }),
       })

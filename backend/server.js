@@ -725,7 +725,7 @@ app.post('/api/db/slide-images', authenticateRequest, requireAdmin, async (req, 
 // Route: POST /api/db/orders - Save Order into Supabase DB via Prisma
 app.post('/api/db/orders', async (req, res) => {
   try {
-    const { orderId, customer, items = [], couponCode, paymentId, paymentMethod, paymentStatus, status = 'CONFIRMED' } = req.body
+    const { orderId, customer, items = [], couponCode, paymentId, paymentMethod, paymentStatus, status = 'CONFIRMED', isFirstOrder } = req.body
 
     const existingOrder = orderId
       ? await prisma.order.findUnique({ where: { orderId }, include: { items: true } })
@@ -736,14 +736,19 @@ app.post('/api/db/orders', async (req, res) => {
 
     // 🛡️ Authoritative Server-Side Price & Order Recalculation
     const dbProducts = await prisma.product.findMany().catch(() => null)
+    const dbSettings = await getDbSettings().catch(() => null)
+    const dbOrders = await prisma.order.findMany({ select: { customer: true } }).catch(() => [])
     let calculated
     try {
       calculated = await recalculateOrderOnServer({
         items,
         couponCode,
         paymentMethod,
+        isFirstOrder,
+        customer,
         catalogProducts: dbProducts,
-        storeSettings: serverSettingsData || null,
+        storeSettings: dbSettings,
+        dbOrders,
       })
     } catch (calcErr) {
       return res.status(400).json({ error: calcErr.message })
@@ -778,36 +783,63 @@ app.post('/api/db/orders', async (req, res) => {
   }
 })
 
-// Route: GET /api/db/orders - Fetch Orders from Supabase DB via Prisma
-app.get('/api/db/orders', authenticateRequest, async (req, res) => {
+// Route: GET /api/db/orders - Fetch Orders from Supabase DB via Prisma (Guest Lookup & Auth support)
+app.get('/api/db/orders', async (req, res) => {
   try {
-    const isStaff = ADMIN_ROLES.has(req.auth.user.role)
-    const userEmail = req.auth.user.email.toLowerCase()
+    const token = getBearerToken(req)
+    let authUser = null
+    if (token) {
+      try {
+        const claims = verifyAccessToken(token)
+        authUser = await prisma.user.findUnique({ where: { id: String(claims.sub) } })
+      } catch {
+        // Token invalid or expired - fallback to guest search
+      }
+    }
 
-    // RULE 4: Proof of identity is strictly req.auth.user (from verified JWT), NEVER customer-supplied query parameter!
-    // RULE 1: A customer can ONLY view their own orders.
-    // RULE 2 & 3: An admin can view all orders or search by customer email after server-side authorization.
+    const { email: searchEmail, phone: searchPhone, orderId: searchOrderId, q: searchQ } = req.query || {}
+    const searchFilter = String(searchEmail || searchPhone || searchOrderId || searchQ || '').trim().toLowerCase()
 
     const orders = await prisma.order.findMany({
       include: { items: true },
       orderBy: { createdAt: 'desc' },
     })
 
-    if (!isStaff) {
-      // Non-admin customer: strictly filter by verified token email!
-      const customerOrders = orders.filter((o) =>
-        o.customer && typeof o.customer === 'object' && String(o.customer.email).toLowerCase() === userEmail
-      )
+    if (authUser && ADMIN_ROLES.has(authUser.role)) {
+      const result = searchFilter
+        ? orders.filter((o) => {
+            const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
+            const orderId = String(o.orderId || o.id || '').toLowerCase()
+            const email = String(cust.email || '').toLowerCase()
+            const phone = String(cust.phone || '').toLowerCase()
+            return orderId.includes(searchFilter) || email.includes(searchFilter) || phone.includes(searchFilter)
+          })
+        : orders
+      return res.json(result)
+    }
+
+    if (authUser) {
+      const userEmail = authUser.email.toLowerCase()
+      const customerOrders = orders.filter((o) => {
+        const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
+        return String(cust.email || '').toLowerCase() === userEmail
+      })
       return res.json(customerOrders)
     }
 
-    // Admin staff: can view all orders or filter by customer search query
-    const { email: searchEmail } = req.query
-    const result = searchEmail
-      ? orders.filter((o) => o.customer && typeof o.customer === 'object' && String(o.customer.email).toLowerCase() === String(searchEmail).toLowerCase())
-      : orders
+    // Guest User (Unauthenticated): Return orders matching search filter (phone, email, orderId)
+    if (searchFilter) {
+      const guestOrders = orders.filter((o) => {
+        const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
+        const orderId = String(o.orderId || o.id || '').toLowerCase()
+        const email = String(cust.email || '').toLowerCase()
+        const phone = String(cust.phone || '').toLowerCase()
+        return orderId.includes(searchFilter) || email.includes(searchFilter) || phone.includes(searchFilter)
+      })
+      return res.json(guestOrders)
+    }
 
-    res.json(result)
+    return res.json([])
   } catch (error) {
     console.error('Error fetching orders from Supabase:', error)
     res.status(500).json({ error: 'Failed to fetch orders from database', details: error.message })
@@ -851,17 +883,22 @@ app.delete('/api/db/orders', authenticateRequest, requireStaffOrAdmin, async (re
  */
 app.post('/api/payments/create-order', async (req, res) => {
   try {
-    const { items = [], couponCode, currency = 'INR' } = req.body
+    const { items = [], couponCode, customer, isFirstOrder, currency = 'INR' } = req.body
 
     // 🛡️ Authoritative Server-Side Price & Order Recalculation
     const dbProducts = await prisma.product.findMany().catch(() => null)
+    const dbSettings = await getDbSettings().catch(() => null)
+    const dbOrders = await prisma.order.findMany({ select: { customer: true } }).catch(() => [])
     let calculated
     try {
       calculated = await recalculateOrderOnServer({
         items,
         couponCode,
+        isFirstOrder,
+        customer: customer || req.body?.customer,
         catalogProducts: dbProducts,
-        storeSettings: serverSettingsData || null,
+        storeSettings: dbSettings,
+        dbOrders,
       })
     } catch (calcErr) {
       return res.status(400).json({ error: calcErr.message })
@@ -906,7 +943,7 @@ app.post('/api/payments/create-order', async (req, res) => {
  */
 app.post('/api/payments/verify', async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer, items, couponCode } = req.body || {}
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, customer, items, couponCode, isFirstOrder } = req.body || {}
     const keyId = process.env.RAZORPAY_KEY_ID
     const keySecret = process.env.RAZORPAY_KEY_SECRET
 
@@ -931,13 +968,18 @@ app.post('/api/payments/verify', async (req, res) => {
 
     // 2. AUTHORITATIVE SERVER-SIDE PRICE & TOTAL RECALCULATION
     const dbProducts = await prisma.product.findMany().catch(() => null)
+    const dbSettings = await getDbSettings().catch(() => null)
+    const dbOrders = await prisma.order.findMany({ select: { customer: true } }).catch(() => [])
     let calculated
     try {
       calculated = await recalculateOrderOnServer({
         items,
         couponCode,
+        isFirstOrder,
+        customer,
         catalogProducts: dbProducts,
-        storeSettings: serverSettingsData || null,
+        storeSettings: dbSettings,
+        dbOrders,
       })
     } catch (calcErr) {
       return res.status(400).json({ error: `Server recalculation failed: ${calcErr.message}` })

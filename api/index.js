@@ -67,36 +67,14 @@ function hasStaffRole(user) {
 }
 
 async function getOrders(query, authUser) {
-  if (!authUser) {
-    return { status: 401, body: { error: 'Authentication required to view orders.' } }
-  }
-
-  const isStaff = hasStaffRole(authUser)
-
-  // RULE 4: Proof of identity is ALWAYS authUser (from verified JWT), NEVER customer-supplied query parameters!
-  // RULE 1: Non-admin customer can ONLY fetch their own orders.
-  // RULE 2 & 3: Admins can view all orders or search by customer email after server-side authorization.
-
-  let searchEmail = null
-  if (isStaff) {
-    // Admin role can search/filter orders by customer email query parameter
-    searchEmail = query.get('email') || null
-  } else {
-    // Non-admin customer: strictly force identity from verified token!
-    searchEmail = authUser.email
-  }
+  const isStaff = authUser ? hasStaffRole(authUser) : false
+  const searchFilter = (query.get('email') || query.get('phone') || query.get('orderId') || query.get('q') || '').trim().toLowerCase()
 
   const params = new URLSearchParams({ select: '*,order_items(*)', order: 'createdAt.desc' })
-  if (searchEmail) {
-    params.set('customer->>email', `eq.${searchEmail}`)
-  }
-
   let result = await supabaseRequest(`orders?${params.toString()}`)
 
-  // Fallback if relationship 'order_items' is not found in schema cache
   if (result.status >= 400) {
     const fallbackParams = new URLSearchParams({ select: '*', order: 'createdAt.desc' })
-    if (searchEmail) fallbackParams.set('customer->>email', `eq.${searchEmail}`)
     result = await supabaseRequest(`orders?${fallbackParams.toString()}`)
   }
 
@@ -106,15 +84,43 @@ async function getOrders(query, authUser) {
       items: order.items || order.order_items || []
     }))
 
-    if (!isStaff) {
-      const customerOrders = mapped.filter((order) => {
-        const orderEmail = (order.customer && typeof order.customer === 'object' ? order.customer.email : '') || ''
-        return orderEmail.toLowerCase() === authUser.email.toLowerCase()
+    if (isStaff) {
+      return {
+        status: 200,
+        body: searchFilter
+          ? mapped.filter((o) => {
+              const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
+              const orderId = String(o.orderId || o.id || '').toLowerCase()
+              const email = String(cust.email || '').toLowerCase()
+              const phone = String(cust.phone || '').toLowerCase()
+              return orderId.includes(searchFilter) || email.includes(searchFilter) || phone.includes(searchFilter)
+            })
+          : mapped,
+      }
+    }
+
+    if (authUser) {
+      const userEmail = authUser.email.toLowerCase()
+      const customerOrders = mapped.filter((o) => {
+        const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
+        return String(cust.email || '').toLowerCase() === userEmail
       })
       return { status: 200, body: customerOrders }
     }
 
-    return { status: 200, body: mapped }
+    // Guest User (Unauthenticated): Return orders matching search query (phone, email, orderId)
+    if (searchFilter) {
+      const guestOrders = mapped.filter((o) => {
+        const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
+        const orderId = String(o.orderId || o.id || '').toLowerCase()
+        const email = String(cust.email || '').toLowerCase()
+        const phone = String(cust.phone || '').toLowerCase()
+        return orderId.includes(searchFilter) || email.includes(searchFilter) || phone.includes(searchFilter)
+      })
+      return { status: 200, body: guestOrders }
+    }
+
+    return { status: 200, body: [] }
   }
 
   return result
@@ -1536,13 +1542,17 @@ export default async function handler(req, res) {
       || (route.endsWith('/db/orders') && req.method === 'DELETE')
     const isAuthenticatedRoute = isAdminUsersRoute
       || isStaffRoute
-      || (route.endsWith('/db/orders') && req.method === 'GET')
       || route.endsWith('/auth/profile')
       || route.endsWith('/auth/change-password')
       || route.endsWith('/auth/logout')
     const isAdminOnlyRoute = (route.endsWith('/db/settings') && req.method !== 'GET')
       || (route.endsWith('/db/slides') && req.method !== 'GET')
       || route.endsWith('/db/slide-images')
+
+    if (route.endsWith('/db/orders') && req.method === 'GET') {
+      const auth = await authenticateApi(req)
+      if (auth && auth.user) req.authUser = auth.user
+    }
 
     if (isAuthenticatedRoute || isAdminOnlyRoute) {
       const auth = await authenticateApi(req)
