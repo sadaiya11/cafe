@@ -21,7 +21,6 @@ export default function AdminHeader({
     <header className="sticky top-0 z-30 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 px-6 py-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         
-        {/* Title and Live Status */}
         <div className="flex items-center space-x-3">
           <img
             src="/logo.png"
