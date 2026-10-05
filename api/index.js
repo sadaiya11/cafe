@@ -1537,7 +1537,7 @@ export default async function handler(req, res) {
     const adminUserIdMatch = route.match(/\/admin\/users\/([^/]+)$/)
     const adminUserId = adminUserIdMatch ? decodeURIComponent(adminUserIdMatch[1]) : null
     const isAdminUsersRoute = route.endsWith('/admin/users') || Boolean(adminUserId) || route.endsWith('/admin/staff')
-    const isStaffRoute = (productSlug && ['PUT', 'DELETE'].includes(req.method))
+    const isStaffRoute = ((productSlug || route.endsWith('/db/products')) && ['POST', 'PUT', 'DELETE'].includes(req.method))
       || route.endsWith('/db/product-images')
       || Boolean(orderStatusId)
       || (route.endsWith('/db/orders') && req.method === 'DELETE')
@@ -1613,12 +1613,14 @@ export default async function handler(req, res) {
                             ? await uploadSlideImage(req.body?.slideId, req.body?.image, req.body?.contentType)
                             : route.endsWith('/db/products') && req.method === 'GET'
                               ? await getProducts()
-                              : route.endsWith('/db/product-images') && req.method === 'POST'
-                                ? await uploadProductImage(req.body?.slug, req.body?.image, req.body?.contentType)
-                                : productSlug && req.method === 'PUT'
-                                  ? await saveProduct(decodeURIComponent(productSlug), req.body || {})
-                                  : productSlug && req.method === 'DELETE'
-                                    ? await deleteProduct(decodeURIComponent(productSlug))
+                              : route.endsWith('/db/products') && req.method === 'POST'
+                                ? await saveProduct(req.body?.slug || req.body?.id, req.body || {})
+                                : route.endsWith('/db/product-images') && req.method === 'POST'
+                                  ? await uploadProductImage(req.body?.slug, req.body?.image, req.body?.contentType)
+                                  : productSlug && req.method === 'PUT'
+                                    ? await saveProduct(decodeURIComponent(productSlug), req.body || {})
+                                    : productSlug && req.method === 'DELETE'
+                                      ? await deleteProduct(decodeURIComponent(productSlug))
                                     : orderStatusId && (req.method === 'PATCH' || req.method === 'PUT')
                                       ? await updateOrderStatusInDb(orderStatusId, req.body?.status)
                                        : route.endsWith('/db/orders') && req.method === 'GET'

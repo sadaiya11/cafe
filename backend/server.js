@@ -607,6 +607,48 @@ app.get('/api/db/products', async (req, res) => {
 })
 
 
+// Route: POST /api/db/products - Create Product in Supabase DB via Prisma
+app.post('/api/db/products', authenticateRequest, requireAdmin, async (req, res) => {
+  try {
+    const { slug, title, category, tag, description, price, image, variants, inStock } = req.body
+    const productSlug = slug || (title || 'item').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4)
+    const numPrice = Number(price || 0)
+    const normalizedCategory = category || 'Bun Maska'
+    const normalizedDesc = description !== undefined && description !== null ? String(description) : ''
+    const normalizedVariants = Array.isArray(variants) && variants.length
+      ? variants
+      : [{ size: 'standard', label: 'Standard', price: numPrice, image: image || '' }]
+
+    const product = await prisma.product.upsert({
+      where: { slug: productSlug },
+      update: {
+        title,
+        category: normalizedCategory,
+        tag: tag || '',
+        description: normalizedDesc,
+        price: numPrice,
+        image: image || '',
+        variants: normalizedVariants,
+        inStock: inStock !== false,
+      },
+      create: {
+        slug: productSlug,
+        title,
+        category: normalizedCategory,
+        tag: tag || '',
+        description: normalizedDesc,
+        price: numPrice,
+        image: image || '',
+        variants: normalizedVariants,
+        inStock: inStock !== false,
+      },
+    })
+    res.status(201).json(product)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create product', details: error.message })
+  }
+})
+
 // Route: PUT /api/db/products/:slug - Update the fields shown to customers.
 app.put('/api/db/products/:slug', authenticateRequest, requireAdmin, async (req, res) => {
   try {
