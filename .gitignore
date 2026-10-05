@@ -13,6 +13,7 @@ dist-ssr
 *.local
 .env
 backend/.env
+client ka supabase
 
 # Editor directories and files
 .vscode/*
