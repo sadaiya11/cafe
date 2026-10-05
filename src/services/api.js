@@ -12,10 +12,12 @@ function authHeaders() {
 }
 
 export function handleCustomerResponse(response) {
-  if (response && response.status === 401) {
+  if (response && (response.status === 401 || response.status === 403)) {
     localStorage.removeItem('bun-maska-user')
+    localStorage.removeItem('bun_maska_staff_session')
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('bun_customer_unauthorized'))
+      window.dispatchEvent(new Event('bun_staff_auth_changed'))
     }
   }
   return response
@@ -222,6 +224,8 @@ export async function saveProduct(product) {
     body: JSON.stringify(product),
   })
 
+  handleCustomerResponse(response)
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
     throw new Error(error.error || 'Unable to save product.')
@@ -238,6 +242,8 @@ export async function createProduct(product) {
     body: JSON.stringify(product),
   })
 
+  handleCustomerResponse(response)
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
     throw new Error(error.error || 'Unable to create product in database.')
@@ -252,6 +258,8 @@ export async function deleteProduct(slug) {
     method: 'DELETE',
     headers: authHeaders(),
   })
+
+  handleCustomerResponse(response)
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
