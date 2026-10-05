@@ -989,7 +989,7 @@ const DEFAULT_SETTINGS = {
   storeClosedNotice: 'Our cafe daily operating hours: 11:00 AM - 11:30 PM.',
   deliveryFee: 4.99,
   taxRate: 0.08,
-  freeDeliveryThreshold: 500,
+  freeDeliveryThreshold: 220,
   storeName: 'Bun Maska Café',
   phone: '8085700750',
   email: 'amansoni16041996@gmail.com',
