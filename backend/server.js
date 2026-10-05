@@ -230,8 +230,18 @@ app.post('/api/auth/login', async (req, res) => {
   }
 })
 
-app.post('/api/auth/logout', authenticateRequest, async (req, res) => {
-  await prisma.user.update({ where: { id: req.auth.user.id }, data: { tokenVersion: { increment: 1 } } })
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const token = getBearerToken(req)
+    if (token) {
+      const claims = verifyAccessToken(token)
+      if (claims?.sub) {
+        await prisma.user.update({ where: { id: String(claims.sub) }, data: { tokenVersion: { increment: 1 } } }).catch(() => {})
+      }
+    }
+  } catch (error) {
+    // Ignore invalid or expired tokens during logout
+  }
   res.json({ success: true })
 })
 

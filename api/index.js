@@ -1544,7 +1544,6 @@ export default async function handler(req, res) {
       || isStaffRoute
       || route.endsWith('/auth/profile')
       || route.endsWith('/auth/change-password')
-      || route.endsWith('/auth/logout')
     const isAdminOnlyRoute = (route.endsWith('/db/settings') && req.method !== 'GET')
       || (route.endsWith('/db/slides') && req.method !== 'GET')
       || route.endsWith('/db/slide-images')
@@ -1565,12 +1564,19 @@ export default async function handler(req, res) {
     }
 
     if (route.endsWith('/auth/logout') && req.method === 'POST') {
-      const result = await supabaseRequest(`users?id=eq.${encodeURIComponent(req.authUser.id)}`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=minimal' },
-        body: JSON.stringify({ tokenVersion: Number(req.authUser.tokenVersion || 0) + 1 }),
-      })
-      return json(res, result.status >= 400 ? result.status : 200, result.status >= 400 ? result.body : { success: true })
+      try {
+        const auth = await authenticateApi(req)
+        if (auth && auth.user) {
+          await supabaseRequest(`users?id=eq.${encodeURIComponent(auth.user.id)}`, {
+            method: 'PATCH',
+            headers: { Prefer: 'return=minimal' },
+            body: JSON.stringify({ tokenVersion: Number(auth.user.tokenVersion || 0) + 1 }),
+          })
+        }
+      } catch (err) {
+        // Ignore invalid/expired token errors on logout
+      }
+      return json(res, 200, { success: true })
     }
 
     const result = route.endsWith('/auth/register') && req.method === 'POST'
