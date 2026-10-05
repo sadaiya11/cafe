@@ -187,6 +187,7 @@ async function saveProduct(slug, body) {
 
 async function deleteProduct(slug) {
   if (!slug) return { status: 400, body: { error: 'Slug is required.' } }
+  serverProductCache.delete(slug)
   const result = await supabaseRequest(`products?slug=eq.${encodeURIComponent(slug)}`, {
     method: 'DELETE',
   })

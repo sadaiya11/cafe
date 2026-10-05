@@ -41,18 +41,18 @@ export function getLocalCatalog() {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       const parsed = JSON.parse(stored)
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(normalizeProduct)
+      if (Array.isArray(parsed)) return parsed.map(normalizeProduct)
     }
   } catch (error) {
     console.warn('LocalStorage read notice:', error.message)
   }
-  return memoryCatalog.length ? memoryCatalog : fallbackProducts.map(normalizeProduct)
+  return memoryCatalog.length ? memoryCatalog : []
 }
 
 export async function loadCatalog() {
   try {
     const remoteProducts = await getProducts()
-    if (Array.isArray(remoteProducts) && remoteProducts.length > 0) {
+    if (Array.isArray(remoteProducts)) {
       const normalized = remoteProducts.map(normalizeProduct)
       storeProducts(normalized)
       return normalized
