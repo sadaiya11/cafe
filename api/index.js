@@ -158,7 +158,9 @@ async function saveProduct(slug, body) {
     ? variants.map((v, i) => (i === 0 ? { ...v, price: numPrice } : v))
     : [{ size: 'standard', label: 'Standard', price: numPrice, image: image || '' }]
 
+  const now = new Date().toISOString()
   const itemToSave = {
+    id: body.id || slug || crypto.randomUUID(),
     slug,
     title,
     category: normalizedCategory,
@@ -168,6 +170,8 @@ async function saveProduct(slug, body) {
     image: image || '',
     variants: normalizedVariants,
     inStock: inStock !== false,
+    createdAt: body.createdAt || now,
+    updatedAt: now,
   }
 
   const result = await supabaseRequest('products?on_conflict=slug', {
