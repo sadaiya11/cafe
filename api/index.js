@@ -285,6 +285,8 @@ async function saveOrder(body, verifiedPayment = false) {
       paymentMethod: verifiedPayment ? 'RAZORPAY' : 'COD',
       paymentStatus: verifiedPayment ? 'SUCCESS' : 'PENDING',
       status: verifiedPayment ? 'PAID' : 'PENDING',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }),
   })
 
@@ -354,6 +356,8 @@ async function createPosOrder(body, authUser) {
       paymentId: null,
       paymentMethod: normalizedPaymentMethod,
       paymentStatus: 'SUCCESS',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }),
   })
   if (orderResult.status >= 400) return orderResult
