@@ -955,13 +955,16 @@ app.get('/api/db/orders', async (req, res) => {
       return res.json(customerOrders)
     }
 
-    // Public order lookup requires an exact order ID and matching phone number.
-    if (searchOrderId && searchPhone) {
+    // Guest lookup accepts an exact order ID or exact checkout phone; both narrow results.
+    if (searchOrderId || searchPhone) {
       const expectedPhone = String(searchPhone).replace(/\D/g, '')
       const guestOrders = orders.filter((o) => {
         const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
         const phone = String(cust.phone || cust.mobile || '').replace(/\D/g, '')
-        return String(o.orderId || '').toLowerCase() === String(searchOrderId).trim().toLowerCase() && phone === expectedPhone
+        const expectedOrderId = String(searchOrderId || '').trim().toLowerCase()
+        const idMatches = !expectedOrderId || String(o.orderId || '').toLowerCase() === expectedOrderId
+        const phoneMatches = !expectedPhone || phone === expectedPhone
+        return idMatches && phoneMatches
       })
       return res.json(guestOrders)
     }

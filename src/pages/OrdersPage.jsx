@@ -39,8 +39,8 @@ export default function OrdersPage() {
       return
     }
 
-    if (!lookupOrderId.trim() || !lookupPhone.trim()) {
-      setError('Enter both the order ID and the phone number used at checkout.')
+    if (!lookupOrderId.trim() && !lookupPhone.trim()) {
+      setError('Enter an order ID or the phone number used at checkout.')
       setOrders([])
       return
     }
@@ -48,9 +48,12 @@ export default function OrdersPage() {
     setLoading(true)
     setError(null)
     try {
-      const data = await getOrders({ orderId: lookupOrderId.trim(), phone: lookupPhone.trim() })
+      const data = await getOrders({
+        ...(lookupOrderId.trim() ? { orderId: lookupOrderId.trim() } : {}),
+        ...(lookupPhone.trim() ? { phone: lookupPhone.trim() } : {}),
+      })
       setOrders(data)
-      if (!data.length) setError('No matching order found. Check the order ID and checkout phone number.')
+      if (!data.length) setError('No matching orders found. Check the order ID or checkout phone number.')
     } catch (err) {
       console.warn('Order lookup failed:', err.message)
       setError(err.message || 'Unable to search orders. Please try again.')
@@ -65,7 +68,7 @@ export default function OrdersPage() {
       handleOrderSearch({ preventDefault: () => {} })
       return
     }
-    if (lookupOrderId.trim() && lookupPhone.trim()) {
+    if (lookupOrderId.trim() || lookupPhone.trim()) {
       handleOrderSearch({ preventDefault: () => {} })
     }
   }
@@ -144,12 +147,11 @@ export default function OrdersPage() {
 
         {/* Guest & Registered Customer Order Lookup Bar */}
         <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-          <label className="text-xs font-bold text-slate-700 block">🔍 Order Lookup {user?.email ? '(Your account orders)' : '(Guest order: enter both details)'}</label>
+          <label className="text-xs font-bold text-slate-700 block">🔍 Order Lookup {user?.email ? '(Your account orders)' : '(Guest: use order ID or phone number)'}</label>
           <form onSubmit={handleOrderSearch} className="flex flex-col sm:flex-row gap-2">
             {!user?.email && <>
               <input
                 type="text"
-                required
                 aria-label="Order ID"
                 placeholder="Order ID (e.g. BM-79da0f13-...)"
                 value={lookupOrderId}
@@ -158,7 +160,6 @@ export default function OrdersPage() {
               />
               <input
                 type="tel"
-                required
                 aria-label="Phone number used at checkout"
                 placeholder="Phone used at checkout"
                 value={lookupPhone}
@@ -174,7 +175,7 @@ export default function OrdersPage() {
               {loading ? 'Searching…' : 'Search Order'}
             </button>
           </form>
-          {!user?.email && <p className="text-[11px] text-slate-500">Use the phone number you entered at checkout. Both fields are required to protect your order details.</p>}
+          {!user?.email && <p className="text-[11px] text-slate-500">Enter either the exact order ID or the exact phone number used at checkout. You may enter both to narrow the results.</p>}
         </div>
 
         {loading ? (

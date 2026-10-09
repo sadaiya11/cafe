@@ -192,10 +192,12 @@ export async function getOrders(lookup = '') {
   if (lookup && typeof lookup === 'object') {
     const lookupId = String(lookup.orderId || '').trim().toLowerCase()
     const lookupPhone = String(lookup.phone || '').replace(/\D/g, '')
-    combined = lookupId && lookupPhone ? combined.filter((o) => {
+    combined = lookupId || lookupPhone ? combined.filter((o) => {
       const cust = o.customer || {}
       const phone = String(cust.phone || cust.mobile || '').replace(/\D/g, '')
-      return String(o.orderId || '').trim().toLowerCase() === lookupId && phone === lookupPhone
+      const idMatches = !lookupId || String(o.orderId || '').trim().toLowerCase() === lookupId
+      const phoneMatches = !lookupPhone || phone === lookupPhone
+      return idMatches && phoneMatches
     }) : []
   } else if (lookup && String(lookup).trim()) {
     const q = String(lookup).trim().toLowerCase()

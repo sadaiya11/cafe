@@ -117,12 +117,14 @@ async function getOrders(query, authUser) {
       return { status: 200, body: customerOrders }
     }
 
-    // Public order lookup requires an exact order ID and matching phone number.
-    if (searchOrderId && searchPhone) {
+    // Guest lookup accepts an exact order ID or exact checkout phone; both narrow results.
+    if (searchOrderId || searchPhone) {
       const guestOrders = mapped.filter((o) => {
         const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
         const phone = String(cust.phone || cust.mobile || '').replace(/\D/g, '')
-        return String(o.orderId || '').trim().toLowerCase() === searchOrderId && phone === searchPhone
+        const idMatches = !searchOrderId || String(o.orderId || '').trim().toLowerCase() === searchOrderId
+        const phoneMatches = !searchPhone || phone === searchPhone
+        return idMatches && phoneMatches
       })
       return { status: 200, body: guestOrders }
     }
