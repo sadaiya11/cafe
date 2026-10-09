@@ -23,8 +23,8 @@ const getCredentials = () => ({
 })
 
 const getSupabaseConfig = () => ({
-  url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  key: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
+  url: process.env.SUPABASE_URL,
+  key: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
 })
 
 async function supabaseRequest(path, options = {}) {
@@ -44,6 +44,12 @@ async function supabaseRequest(path, options = {}) {
   })
   const text = await response.text()
   return { status: response.status, body: text ? JSON.parse(text) : null }
+}
+
+async function getOrderCustomers() {
+  const result = await supabaseRequest('orders?select=customer')
+  if (result.status >= 400 || !Array.isArray(result.body)) return null
+  return result.body
 }
 
 async function authenticateApi(req) {
@@ -68,7 +74,9 @@ function hasStaffRole(user) {
 
 async function getOrders(query, authUser) {
   const isStaff = authUser ? hasStaffRole(authUser) : false
-  const searchFilter = (query.get('email') || query.get('phone') || query.get('orderId') || query.get('q') || '').trim().toLowerCase()
+  const searchEmail = (query.get('email') || '').trim().toLowerCase()
+  const searchPhone = (query.get('phone') || '').replace(/\D/g, '')
+  const searchOrderId = (query.get('orderId') || '').trim().toLowerCase()
 
   const params = new URLSearchParams({ select: '*,order_items(*)', order: 'createdAt.desc' })
   let result = await supabaseRequest(`orders?${params.toString()}`)
@@ -85,6 +93,7 @@ async function getOrders(query, authUser) {
     }))
 
     if (isStaff) {
+      const searchFilter = searchEmail || searchPhone || searchOrderId
       return {
         status: 200,
         body: searchFilter
@@ -108,14 +117,12 @@ async function getOrders(query, authUser) {
       return { status: 200, body: customerOrders }
     }
 
-    // Guest User (Unauthenticated): Return orders matching search query (phone, email, orderId)
-    if (searchFilter) {
+    // Public order lookup requires an exact order ID and matching phone number.
+    if (searchOrderId && searchPhone) {
       const guestOrders = mapped.filter((o) => {
         const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
-        const orderId = String(o.orderId || o.id || '').toLowerCase()
-        const email = String(cust.email || '').toLowerCase()
-        const phone = String(cust.phone || '').toLowerCase()
-        return orderId.includes(searchFilter) || email.includes(searchFilter) || phone.includes(searchFilter)
+        const phone = String(cust.phone || cust.mobile || '').replace(/\D/g, '')
+        return String(o.orderId || '').trim().toLowerCase() === searchOrderId && phone === searchPhone
       })
       return { status: 200, body: guestOrders }
     }
@@ -230,13 +237,17 @@ async function uploadProductImage(slug, dataUrl, contentType = 'image/jpeg') {
   return { status: 201, body: { imageUrl: `${url}/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/${objectPath}` } }
 }
 
-async function saveOrder(body) {
-  const { orderId, customer, items = [], couponCode, paymentId, paymentMethod, paymentStatus, status = 'CONFIRMED' } = body
-  if (orderId) {
+async function saveOrder(body, verifiedPayment = false) {
+  const { orderId, customer, items = [], couponCode, paymentId, paymentMethod } = body
+  if (verifiedPayment && orderId) {
     const existingResult = await supabaseRequest(`orders?orderId=eq.${encodeURIComponent(orderId)}&select=*`)
     if (existingResult.status < 400 && existingResult.body?.length) {
       return { status: 200, body: { success: true, order: existingResult.body[0], alreadyExists: true } }
     }
+  }
+
+  if (!verifiedPayment && String(paymentMethod || '').toUpperCase() !== 'COD') {
+    return { status: 400, body: { error: 'Online payments must be verified through the payment verification endpoint.' } }
   }
 
   // 🛡️ Authoritative Server-Side Price & Order Recalculation
@@ -251,8 +262,11 @@ async function saveOrder(body) {
       items,
       couponCode,
       paymentMethod,
+      customer,
       catalogProducts: dbProducts,
       storeSettings: dbSettings,
+      dbOrders: await getOrderCustomers(),
+      coupons: (await getCoupons()).body,
     })
   } catch (err) {
     return { status: 400, body: { error: err.message } }
@@ -262,14 +276,14 @@ async function saveOrder(body) {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
-      orderId: orderId || `BM-${Date.now()}`,
+      orderId: verifiedPayment ? orderId : `BM-${crypto.randomUUID()}`,
       customer: customer || {},
       amount: calculated.finalPayableTotal, // AUTHORITATIVE SERVER RECALCULATED TOTAL
       currency: 'INR',
-      paymentId,
-      paymentMethod,
-      paymentStatus,
-      status,
+      paymentId: verifiedPayment ? paymentId : null,
+      paymentMethod: verifiedPayment ? 'RAZORPAY' : 'COD',
+      paymentStatus: verifiedPayment ? 'SUCCESS' : 'PENDING',
+      status: verifiedPayment ? 'PAID' : 'PENDING',
     }),
   })
 
@@ -294,8 +308,72 @@ async function saveOrder(body) {
   return { status: 201, body: { success: true, order, calculated } }
 }
 
+async function createPosOrder(body, authUser) {
+  if (!authUser || !hasStaffRole(authUser)) return { status: 403, body: { error: 'Staff or admin access required.' } }
+  const { customer = {}, items = [], paymentMethod, discountType, discountValue } = body || {}
+  const productsResult = await getProducts()
+  const catalogProducts = productsResult.status === 200 && Array.isArray(productsResult.body) ? productsResult.body : null
+  if (!catalogProducts?.length) return { status: 503, body: { error: 'The product catalog is unavailable.' } }
+  const productsBySlug = new Map(catalogProducts.map((product) => [String(product.slug).toLowerCase(), product]))
+  const normalizedItems = items.map((item) => {
+    const product = productsBySlug.get(String(item.slug || '').toLowerCase())
+    if (!product) throw new Error('An item in the POS order is unavailable.')
+    return { ...item, slug: product.slug, size: item.size || product.variants?.[0]?.size || 'standard' }
+  })
+  const settings = await getSettings()
+  const calculated = await recalculateOrderOnServer({
+    items: normalizedItems,
+    paymentMethod: 'POS',
+    customer,
+    catalogProducts,
+    storeSettings: settings.body,
+    dbOrders: null,
+    coupons: [],
+  })
+  const discountInput = Number(discountValue) || 0
+  if (!Number.isFinite(discountInput) || discountInput < 0 || (discountType === 'PERCENT' && discountInput > 100)) {
+    return { status: 400, body: { error: 'Invalid POS discount.' } }
+  }
+  const discount = Math.min(calculated.subtotal, discountType === 'PERCENT' ? calculated.subtotal * discountInput / 100 : discountInput)
+  const total = Math.max(0, Math.round((calculated.subtotal - discount + calculated.taxAmount) * 100) / 100)
+  let normalizedPaymentMethod = String(paymentMethod || '').toUpperCase()
+  if (normalizedPaymentMethod === 'COD') normalizedPaymentMethod = 'CASH'
+  if (!['CASH', 'UPI', 'CARD'].includes(normalizedPaymentMethod)) return { status: 400, body: { error: 'Invalid POS payment method.' } }
+  const orderId = `POS-${crypto.randomUUID()}`
+  const orderResult = await supabaseRequest('orders?select=*', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      orderId,
+      customer: { ...customer, orderType: customer.orderType || 'COUNTER' },
+      amount: total,
+      currency: 'INR',
+      status: 'CONFIRMED',
+      paymentId: null,
+      paymentMethod: normalizedPaymentMethod,
+      paymentStatus: 'SUCCESS',
+    }),
+  })
+  if (orderResult.status >= 400) return orderResult
+  const order = Array.isArray(orderResult.body) ? orderResult.body[0] : orderResult.body
+  const itemResult = await supabaseRequest('order_items', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify(calculated.items.map((item) => ({
+      orderId: order.id,
+      title: item.title,
+      size: item.sizeLabel || item.size,
+      quantity: item.quantity,
+      price: item.price,
+    }))),
+  })
+  if (itemResult.status >= 400) return itemResult
+  return { status: 201, body: { success: true, order: { ...order, items: calculated.items }, calculation: { subtotal: calculated.subtotal, discount, tax: calculated.taxAmount, total } } }
+}
+
 async function createRazorpayOrder(body) {
   const { items = [], couponCode, currency = 'INR' } = body
+  if (currency !== 'INR') return { status: 400, body: { error: 'Only INR payments are supported.' } }
 
   // 🛡️ Authoritative Server-Side Price & Order Recalculation
   const productsResult = await getProducts()
@@ -310,6 +388,9 @@ async function createRazorpayOrder(body) {
       couponCode,
       catalogProducts: dbProducts,
       storeSettings: dbSettings,
+      customer: body.customer,
+      dbOrders: await getOrderCustomers(),
+      coupons: (await getCoupons()).body,
     })
   } catch (err) {
     return { status: 400, body: { error: err.message } }
@@ -318,6 +399,9 @@ async function createRazorpayOrder(body) {
   const { keyId, keySecret } = getCredentials()
 
   if (!keyId || !keySecret) {
+    if (process.env.NODE_ENV === 'production') {
+      return { status: 503, body: { error: 'Razorpay is not configured for production payments.' } }
+    }
     return {
       status: 200,
       body: {
@@ -393,6 +477,9 @@ async function verifyPayment(body) {
       couponCode,
       catalogProducts: dbProducts,
       storeSettings: dbSettings,
+      customer,
+      dbOrders: await getOrderCustomers(),
+      coupons: (await getCoupons()).body,
     })
   } catch (err) {
     return { status: 400, body: { error: `Server recalculation failed: ${err.message}` } }
@@ -400,7 +487,7 @@ async function verifyPayment(body) {
 
   // 3. DEMO MODE FALLBACK (When Razorpay API keys are unconfigured)
   if (!keySecret || !keyId) {
-    if (String(razorpay_order_id).startsWith('order_demo_')) {
+    if (process.env.NODE_ENV !== 'production' && String(razorpay_order_id).startsWith('order_demo_')) {
       const savedOrder = await saveOrder({
         orderId: razorpay_order_id,
         paymentId: razorpay_payment_id,
@@ -410,7 +497,8 @@ async function verifyPayment(body) {
         status: 'PAID',
         paymentMethod: 'RAZORPAY',
         paymentStatus: 'SUCCESS',
-      })
+      }, true)
+      if (savedOrder.status >= 400) return { status: 503, body: { error: 'Unable to save demo order.' } }
       return {
         status: 200,
         body: {
@@ -432,18 +520,9 @@ async function verifyPayment(body) {
     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
     .digest('hex')
 
-  if (razorpay_signature !== expectedSignature) {
-    // Save order as failed due to signature mismatch
-    await saveOrder({
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      customer,
-      items,
-      couponCode,
-      status: 'CANCELLED',
-      paymentMethod: 'RAZORPAY',
-      paymentStatus: 'FAILED',
-    })
+  const providedSignature = Buffer.from(String(razorpay_signature), 'hex')
+  const expectedSignatureBytes = Buffer.from(expectedSignature, 'hex')
+  if (providedSignature.length !== expectedSignatureBytes.length || !crypto.timingSafeEqual(providedSignature, expectedSignatureBytes)) {
     return { status: 400, body: { success: false, error: 'Invalid payment signature' } }
   }
 
@@ -470,34 +549,19 @@ async function verifyPayment(body) {
     console.warn('Direct Razorpay order status check warning:', e.message)
   }
 
-  // REJECT IF RAZORPAY REPORTS PAYMENT STATUS AS FAILED
-  if (rzpPayment && ['failed', 'refunded'].includes(rzpPayment.status)) {
-    await saveOrder({
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      customer,
-      items,
-      couponCode,
-      status: 'CANCELLED',
-      paymentMethod: 'RAZORPAY',
-      paymentStatus: 'FAILED',
-    })
-    return { status: 400, body: { success: false, error: `Payment failed on Razorpay gateway (status: ${rzpPayment.status})` } }
+  if (!rzpPayment || !rzpOrder) {
+    return { status: 503, body: { error: 'Unable to verify payment status with Razorpay. Please retry shortly.' } }
+  }
+  if (rzpPayment.order_id !== razorpay_order_id || rzpOrder.id !== razorpay_order_id) {
+    return { status: 400, body: { error: 'Razorpay payment does not belong to this order.' } }
+  }
+  if (rzpPayment.status !== 'captured' || rzpOrder.status !== 'paid') {
+    return { status: 400, body: { error: 'Razorpay has not confirmed a captured payment for this order.' } }
   }
 
   // 6. VERIFY RAZORPAY AMOUNT MATCHES SERVER-CALCULATED ORDER TOTAL
-  const rzpAmountInPaise = Number(rzpPayment?.amount ?? rzpOrder?.amount ?? 0)
-  if (rzpAmountInPaise > 0 && Math.abs(rzpAmountInPaise - calculated.amountInPaise) > 100) {
-    await saveOrder({
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      customer,
-      items,
-      couponCode,
-      status: 'CANCELLED',
-      paymentMethod: 'RAZORPAY',
-      paymentStatus: 'FAILED',
-    })
+  const rzpAmountInPaise = Number(rzpPayment.amount)
+  if (rzpAmountInPaise !== calculated.amountInPaise || Number(rzpOrder.amount) !== calculated.amountInPaise || rzpPayment.currency !== 'INR' || rzpOrder.currency !== 'INR') {
     return {
       status: 400,
       body: {
@@ -517,10 +581,10 @@ async function verifyPayment(body) {
     status: 'PAID',
     paymentMethod: 'RAZORPAY',
     paymentStatus: 'SUCCESS',
-  })
+  }, true)
 
   if (savedOrder.status >= 400) {
-    console.warn('Database save warning during payment verification:', savedOrder.body)
+    return { status: 503, body: { error: 'Payment verified, but the order could not be saved. Please contact the cafe with your payment ID.', paymentId: razorpay_payment_id } }
   }
 
   return {
@@ -536,7 +600,7 @@ async function verifyPayment(body) {
   }
 }
 
-async function handleRazorpayWebhook(body, headers) {
+async function handleRazorpayWebhook(body, headers, rawBody) {
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET
   const signature = headers['x-razorpay-signature'] || headers['X-Razorpay-Signature']
 
@@ -544,7 +608,7 @@ async function handleRazorpayWebhook(body, headers) {
     return { status: 400, body: { error: 'Webhook secret or signature missing.' } }
   }
 
-  const payloadString = typeof body === 'string' ? body : JSON.stringify(body)
+  const payloadString = rawBody || (typeof body === 'string' ? body : JSON.stringify(body))
   const expectedSignature = crypto
     .createHmac('sha256', webhookSecret)
     .update(payloadString)
@@ -606,6 +670,9 @@ async function updateOrderStatusInDb(orderId, status) {
 }
 
 async function deleteAllOrders(authUser) {
+  if (process.env.NODE_ENV === 'production') {
+    return { status: 403, body: { error: 'Bulk order deletion is disabled in production.' } }
+  }
   if (!authUser || !['ADMIN', 'STAFF'].includes(String(authUser.role).toUpperCase())) {
     return { status: 403, body: { error: 'Admin or Staff session required to clear orders.' } }
   }
@@ -631,12 +698,12 @@ async function registerAuthUser(body) {
     return { status: 400, body: { error: 'Name, email, and password are required.' } }
   }
   const normalizedEmail = email.trim().toLowerCase()
-  if (password.trim().length < 4) {
-    return { status: 400, body: { error: 'Password must be at least 4 characters long.' } }
+  if (password.trim().length < 12) {
+    return { status: 400, body: { error: 'Password must be at least 12 characters long.' } }
   }
 
   const requestedRole = String(role || 'CUSTOMER').toUpperCase()
-  const allowedRoles = ['CUSTOMER', 'STAFF', 'ADMIN']
+  const allowedRoles = ['CUSTOMER', 'ADMIN']
   if (!allowedRoles.includes(requestedRole)) {
     return { status: 400, body: { error: 'Invalid account role specified.' } }
   }
@@ -799,8 +866,8 @@ const verifyResetToken = (token, email) => {
 }
 
 async function sendResetEmail(toEmail, resetLink) {
-  const emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER || 'sadaiya11@gmail.com'
-  const emailPass = process.env.EMAIL_PASSWORD || process.env.GMAIL_PASS || process.env.EMAIL_PASS || 'jbcr skgv pilj jbsg'
+  const emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER
+  const emailPass = process.env.EMAIL_PASSWORD || process.env.GMAIL_PASS || process.env.EMAIL_PASS
   const emailHost = process.env.EMAIL_HOST || 'smtp.gmail.com'
   const emailPort = Number(process.env.EMAIL_PORT) || 587
   const emailFrom = process.env.EMAIL_FROM || `Bun Maska Cafe <${emailUser}>`
@@ -881,7 +948,7 @@ async function sendResetEmail(toEmail, resetLink) {
 }
 
 async function handleForgotPassword(body) {
-  const { email, origin } = body || {}
+  const { email } = body || {}
   if (!email || !email.trim()) {
     return { status: 400, body: { error: 'Please provide a valid registered email address.' } }
   }
@@ -897,7 +964,9 @@ async function handleForgotPassword(body) {
   if (!tokenSecret) return { status: 503, body: { error: 'Password reset email service is not configured.' } }
   const token = createResetToken(normalizedEmail, expiresAt)
 
-  const baseUrl = origin || 'http://localhost:5173'
+  const configuredBaseUrl = process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL
+  const baseUrl = (configuredBaseUrl || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173')).replace(/\/$/, '')
+  if (!baseUrl) return { status: 503, body: { error: 'Password reset public URL is not configured.' } }
   const resetLink = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
 
   const sendResult = await sendResetEmail(normalizedEmail, resetLink)
@@ -921,8 +990,8 @@ async function handleResetPassword(body) {
     return { status: 400, body: { error: 'Email, token, and a new password are required.' } }
   }
 
-  if (newPassword.trim().length < 4) {
-    return { status: 400, body: { error: 'New password must be at least 4 characters long.' } }
+  if (newPassword.trim().length < 12) {
+    return { status: 400, body: { error: 'New password must be at least 12 characters long.' } }
   }
 
   const normalizedEmail = email.trim().toLowerCase()
@@ -970,8 +1039,8 @@ async function handleChangePassword(body, authUser) {
     return { status: 400, body: { error: 'Incorrect current password. Please try again or use email reset.' } }
   }
 
-  if (newPassword.trim().length < 4) {
-    return { status: 400, body: { error: 'New password must be at least 4 characters long.' } }
+  if (newPassword.trim().length < 12) {
+    return { status: 400, body: { error: 'New password must be at least 12 characters long.' } }
   }
 
   const result = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}`, {
@@ -987,8 +1056,8 @@ async function handleChangePassword(body, authUser) {
 const DEFAULT_SETTINGS = {
   isStoreOpen: true,
   storeClosedNotice: 'Our cafe daily operating hours: 11:00 AM - 11:30 PM.',
-  deliveryFee: 4.99,
-  taxRate: 0.08,
+  deliveryFee: 20,
+  taxRate: 0,
   freeDeliveryThreshold: 220,
   storeName: 'Bun Maska Café',
   phone: '8085700750',
@@ -1088,7 +1157,6 @@ async function saveSettings(body) {
   if (!body || typeof body !== 'object') {
     return { status: 400, body: { error: 'Invalid settings body.' } }
   }
-  serverSettingsCache.set('settings', body)
   const itemToSave = {
     id: '00000000-0000-0000-0000-000000000001',
     slug: '_system_store_settings',
@@ -1108,8 +1176,9 @@ async function saveSettings(body) {
     body: JSON.stringify(itemToSave),
   })
   if (result.status >= 400) {
-    console.warn('Supabase DB settings save notice, using server cached settings:', result.body)
+    return { status: 503, body: { error: 'Settings were not saved to the database.', details: result.body } }
   }
+  serverSettingsCache.set('settings', body)
   return { status: 200, body: { success: true, settings: body } }
 }
 
@@ -1131,7 +1200,6 @@ async function saveSlides(body) {
   if (!Array.isArray(body)) {
     return { status: 400, body: { error: 'Hero slides body must be an array.' } }
   }
-  serverSlidesCache.set('slides', body)
   const itemToSave = {
     id: '00000000-0000-0000-0000-000000000002',
     slug: '_system_hero_slides',
@@ -1151,8 +1219,9 @@ async function saveSlides(body) {
     body: JSON.stringify(itemToSave),
   })
   if (result.status >= 400) {
-    console.warn('Supabase DB slides save notice, using server cached slides:', result.body)
+    return { status: 503, body: { error: 'Hero slides were not saved to the database.', details: result.body } }
   }
+  serverSlidesCache.set('slides', body)
   return { status: 200, body: { success: true, slides: body } }
 }
 
@@ -1205,7 +1274,6 @@ async function saveCoupons(body) {
   if (!Array.isArray(body)) {
     return { status: 400, body: { error: 'Coupons body must be an array.' } }
   }
-  serverCouponsCache.set('coupons', body)
   const itemToSave = {
     id: '00000000-0000-0000-0000-000000000003',
     slug: '_system_store_coupons',
@@ -1225,8 +1293,9 @@ async function saveCoupons(body) {
     body: JSON.stringify(itemToSave),
   })
   if (result.status >= 400) {
-    console.warn('Supabase DB coupons save notice, using server cached coupons:', result.body)
+    return { status: 503, body: { error: 'Coupons were not saved to the database.', details: result.body } }
   }
+  serverCouponsCache.set('coupons', body)
   return { status: 200, body: { success: true, coupons: body } }
 }
 
@@ -1469,8 +1538,8 @@ async function registerStaffUser(body) {
     return { status: 400, body: { error: 'Name, email, and password are required.' } }
   }
   const normalizedEmail = email.trim().toLowerCase()
-  if (password.trim().length < 4) {
-    return { status: 400, body: { error: 'Password must be at least 4 characters.' } }
+  if (password.trim().length < 12) {
+    return { status: 400, body: { error: 'Password must be at least 12 characters.' } }
   }
 
   const existing = await supabaseRequest(`users?email=eq.${encodeURIComponent(normalizedEmail)}&select=*`)
@@ -1510,6 +1579,8 @@ async function registerStaffUser(body) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0')
+  res.setHeader('Pragma', 'no-cache')
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
@@ -1521,13 +1592,13 @@ export default async function handler(req, res) {
     if (typeof body === 'string') {
       try {
         body = JSON.parse(body)
-      } catch (e) {
+      } catch {
         body = {}
       }
     } else if (Buffer.isBuffer(body)) {
       try {
         body = JSON.parse(body.toString('utf-8'))
-      } catch (e) {
+      } catch {
         body = {}
       }
     }
@@ -1545,6 +1616,7 @@ export default async function handler(req, res) {
       || route.endsWith('/db/product-images')
       || Boolean(orderStatusId)
       || (route.endsWith('/db/orders') && req.method === 'DELETE')
+      || (route.endsWith('/pos/orders') && req.method === 'POST')
     const isAuthenticatedRoute = isAdminUsersRoute
       || isStaffRoute
       || route.endsWith('/auth/profile')
@@ -1552,10 +1624,13 @@ export default async function handler(req, res) {
     const isAdminOnlyRoute = (route.endsWith('/db/settings') && req.method !== 'GET')
       || (route.endsWith('/db/slides') && req.method !== 'GET')
       || route.endsWith('/db/slide-images')
+      || (route.endsWith('/db/coupons') && req.method !== 'GET')
+      || (route.includes('/db/reviews') && req.method === 'PUT')
 
     if (route.endsWith('/db/orders') && req.method === 'GET') {
       const auth = await authenticateApi(req)
       if (auth && auth.user) req.authUser = auth.user
+      else if (requestUrl.searchParams.get('admin') === 'true') return json(res, auth.status || 401, auth.body || { error: 'Staff authentication required.' })
     }
 
     if (isAuthenticatedRoute || isAdminOnlyRoute) {
@@ -1564,7 +1639,7 @@ export default async function handler(req, res) {
       if (isAdminOnlyRoute && auth.user.role !== 'ADMIN') return json(res, 403, { error: 'Admin access required.' })
       if (isAdminUsersRoute && auth.user.role !== 'ADMIN') return json(res, 403, { error: 'Admin access required.' })
       if (isStaffRoute && !hasStaffRole(auth.user)) return json(res, 403, { error: 'Staff or admin access required.' })
-      if ((productSlug || route.endsWith('/db/product-images')) && auth.user.role !== 'ADMIN') return json(res, 403, { error: 'Admin access required.' })
+      if ((productSlug || route.endsWith('/db/products') || route.endsWith('/db/product-images')) && auth.user.role !== 'ADMIN') return json(res, 403, { error: 'Admin access required.' })
       req.authUser = auth.user
     }
 
@@ -1578,7 +1653,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({ tokenVersion: Number(auth.user.tokenVersion || 0) + 1 }),
           })
         }
-      } catch (err) {
+      } catch {
         // Ignore invalid/expired token errors on logout
       }
       return json(res, 200, { success: true })
@@ -1633,12 +1708,14 @@ export default async function handler(req, res) {
                                            ? await deleteAllOrders(req.authUser)
                                            : route.endsWith('/db/orders') && req.method === 'POST'
                                              ? await saveOrder(req.body || {})
+                                             : route.endsWith('/pos/orders') && req.method === 'POST'
+                                               ? await createPosOrder(req.body || {}, req.authUser)
                                              : route.endsWith('/payments/create-order') && req.method === 'POST'
                                                ? await createRazorpayOrder(req.body || {})
                                                : route.endsWith('/payments/verify') && req.method === 'POST'
                                                  ? await verifyPayment(req.body || {})
                                                  : route.endsWith('/payments/webhook') && req.method === 'POST'
-                                                   ? await handleRazorpayWebhook(req.body || {}, req.headers || {})
+                                                   ? await handleRazorpayWebhook(req.body || {}, req.headers || {}, req.rawBody)
                                                    : route.endsWith('/db/coupons') && req.method === 'GET'
                                                   ? await getCoupons()
                                                   : route.endsWith('/db/coupons') && (req.method === 'PUT' || req.method === 'POST')

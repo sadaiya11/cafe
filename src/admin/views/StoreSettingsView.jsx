@@ -31,7 +31,7 @@ export default function StoreSettingsView() {
 
   // Slide editing state
   const [editingSlide, setEditingSlide] = useState(null)
-  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [, setIsUploadingImage] = useState(false)
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -48,9 +48,13 @@ export default function StoreSettingsView() {
 
   const handleSaveSettings = async (e) => {
     e.preventDefault()
-    await saveStoreSettings(settings)
-    setSavedNotice('✅ Store settings & rates saved to server successfully!')
-    setTimeout(() => setSavedNotice(''), 3000)
+    try {
+      await saveStoreSettings(settings)
+      setSavedNotice('✅ Store settings & rates saved to server successfully!')
+      setTimeout(() => setSavedNotice(''), 3000)
+    } catch (error) {
+      setSavedNotice(`Unable to save settings: ${error.message}`)
+    }
   }
 
   // FileReader & Supabase Storage helper for uploading banner slide images

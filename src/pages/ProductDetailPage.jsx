@@ -9,6 +9,7 @@ import { useCart } from '../context/useCart'
 const formatPrice = (price) => `₹${Number(price).toFixed(2)}`
 
 const defaultReviews = []
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
 export default function ProductDetailPage() {
   const { slug } = useParams()
@@ -27,8 +28,6 @@ export default function ProductDetailPage() {
   const initialVariant = product?.variants?.[0] ?? { size: 'small', label: 'Small', price: 0, image: '', gallery: [] }
   const [selectedSizeState, setSelectedSize] = useState(initialVariant.size)
   const [quantity, setQuantity] = useState(1)
-
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
   // Review & Rating State
   const [reviews, setReviews] = useState(defaultReviews)

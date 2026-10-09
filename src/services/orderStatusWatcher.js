@@ -29,13 +29,12 @@ function saveSeenStatuses(map) {
   }
 }
 
-export function startOrderStatusWatcher(userEmail = '', intervalMs = 8000) {
-  let timerId = null
-
+export function startOrderStatusWatcher(userEmail = '', intervalMs = 8000, onOrders = () => {}) {
   const checkStatusChanges = async () => {
     try {
       const orders = await getOrders(userEmail)
       if (!Array.isArray(orders)) return
+      onOrders(orders)
 
       const seenMap = getSeenStatuses()
       let updatedMap = { ...seenMap }
@@ -84,6 +83,7 @@ export function startOrderStatusWatcher(userEmail = '', intervalMs = 8000) {
     }
   }
 
-  // Manual status check on demand without automatic background interval loops
-  return () => {}
+  checkStatusChanges()
+  const timerId = window.setInterval(checkStatusChanges, intervalMs)
+  return () => window.clearInterval(timerId)
 }

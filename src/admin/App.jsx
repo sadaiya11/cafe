@@ -25,7 +25,7 @@ function getInitialAdminTab() {
     if (hash && VALID_TABS.includes(hash)) return hash;
     const saved = localStorage.getItem('bun_admin_active_tab');
     if (saved && VALID_TABS.includes(saved)) return saved;
-  } catch {}
+  } catch { /* Browser storage may be unavailable. */ }
   return 'orders';
 }
 
@@ -49,7 +49,7 @@ export default function App() {
       if (window.location.hash !== `#${tabId}`) {
         window.history.replaceState(null, '', `#${tabId}`);
       }
-    } catch {}
+    } catch { /* Browser storage may be unavailable. */ }
   }, []);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function App() {
         setActiveTabState(hash);
         try {
           localStorage.setItem('bun_admin_active_tab', hash);
-        } catch {}
+        } catch { /* Browser storage may be unavailable. */ }
       }
     };
     window.addEventListener('hashchange', onHashChange);

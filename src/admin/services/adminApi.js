@@ -40,15 +40,6 @@ function normalizeOrder(order) {
   }
 }
 
-function getLocalOrders() {
-  try {
-    const data = localStorage.getItem(LOCAL_STORAGE_KEY)
-    return data ? JSON.parse(data) : []
-  } catch {
-    return []
-  }
-}
-
 function getOrderTimestamp(order) {
   if (!order) return 0
   const rawDate = order.createdAt || order.created_at || order.orderDate || order.date
@@ -69,50 +60,24 @@ function getOrderTimestamp(order) {
  * Fetch all customer orders from Supabase Database API (merged with local orders)
  */
 export async function fetchAdminOrders() {
-  const localOrders = getLocalOrders()
-  let combined = []
-
   try {
-    const rawRes = await fetch(`${API_BASE_URL}/api/db/orders`, { headers: authHeaders() })
+    const rawRes = await fetch(`${API_BASE_URL}/api/db/orders?admin=true`, { headers: authHeaders() })
     const response = handleStaffResponse(rawRes)
     if (response.ok) {
       const apiOrders = await response.json()
-      const apiOrderIds = new Set((apiOrders || []).map((o) => o.orderId || o.id))
-      const uniqueLocal = localOrders.filter((o) => !apiOrderIds.has(o.orderId || o.id))
-      combined = [...apiOrders, ...uniqueLocal].map(normalizeOrder)
-    } else {
-      combined = localOrders.map(normalizeOrder)
+      return (apiOrders || []).map(normalizeOrder).sort((a, b) => getOrderTimestamp(b) - getOrderTimestamp(a))
     }
+    return []
   } catch (err) {
-    console.warn('Admin API fetch fallback to local storage:', err.message)
-    combined = localOrders.map(normalizeOrder)
+    console.warn('Admin API fetch failed:', err.message)
+    return []
   }
-
-  // Sort latest orders first (date and time descending)
-  return combined.sort((a, b) => getOrderTimestamp(b) - getOrderTimestamp(a))
 }
 
 /**
  * Update order status (CONFIRMED, PREPARING, OUT_FOR_DELIVERY, DELIVERED, CANCELLED)
  */
 export async function updateOrderStatus(primaryId, newStatus, altId = null) {
-  // 1. Update in local orders array for immediate optimistic UI update
-  try {
-    const localOrders = getLocalOrders()
-    const updated = localOrders.map((o) => {
-      const match1 = primaryId && (o.orderId === primaryId || o.id === primaryId || String(o.id) === String(primaryId) || String(o.orderId) === String(primaryId))
-      const match2 = altId && (o.orderId === altId || o.id === altId || String(o.id) === String(altId) || String(o.orderId) === String(altId))
-      if (match1 || match2) {
-        return { ...o, status: newStatus }
-      }
-      return o
-    })
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated))
-  } catch (e) {
-    console.warn('Local order status update error:', e)
-  }
-
-  // 3. Sync status update with database backend API
   const idsToTry = [primaryId, altId].filter(Boolean)
   for (const id of idsToTry) {
     try {
@@ -121,13 +86,13 @@ export async function updateOrderStatus(primaryId, newStatus, altId = null) {
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ status: newStatus }),
       })
-      if (response.ok) break
+      if (response.ok) return true
     } catch (error) {
       console.warn('Order status API endpoint error:', error.message)
     }
   }
 
-  return true
+  return false
 }
 
 export async function fetchAdminUsers() {
@@ -203,15 +168,14 @@ export async function clearAllAdminOrders() {
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
     })
     const response = handleStaffResponse(rawRes)
-    localStorage.removeItem(LOCAL_STORAGE_KEY)
     if (response.ok) {
+      localStorage.removeItem(LOCAL_STORAGE_KEY)
       return await response.json()
     }
     const err = await response.json().catch(() => ({}))
     return { success: false, error: err.error || 'Failed to clear orders.' }
-  } catch (err) {
-    localStorage.removeItem(LOCAL_STORAGE_KEY)
-    return { success: true, message: 'All local dummy test orders cleared.' }
+  } catch {
+    return { success: false, error: 'Unable to reach the server. Database orders were not cleared.' }
   }
 }
 

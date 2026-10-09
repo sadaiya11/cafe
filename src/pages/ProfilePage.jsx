@@ -76,7 +76,7 @@ export default function ProfilePage() {
       }))
       setNotice({ type: 'success', message: 'Profile & delivery details saved to server database!' })
       setIsEditing(false)
-    } catch (err) {
+    } catch {
       dispatch(updateUser({
         name: name.trim(),
         phone: phone.trim(),

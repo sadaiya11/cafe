@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useSelector } from 'react-redux'
 import { Link, Navigate, Route, Routes } from 'react-router-dom'
 import TopNavigation from './TopNavigation'
 import ProtectedRoute from './ProtectedRoute'

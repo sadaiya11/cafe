@@ -22,9 +22,16 @@ export const SERVER_DEFAULT_SETTINGS = {
  * Authoritative Server-Side Order Recalculator Engine
  * Enforces product pricing, stock availability, quantity limits, coupon rules, tax and delivery fees on backend.
  */
-export async function recalculateOrderOnServer({ items = [], couponCode = '', paymentMethod = '', isFirstOrder = false, customer = null, catalogProducts = null, storeSettings = null, dbOrders = null }) {
+export async function recalculateOrderOnServer({ items = [], couponCode = '', paymentMethod = '', customer = null, catalogProducts = null, storeSettings = null, dbOrders = null, coupons = SERVER_COUPONS }) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error('Order must contain at least one valid food item.')
+  }
+
+  if (storeSettings?.isStoreOpen === false) {
+    throw new Error(storeSettings.storeClosedNotice || 'The cafe is currently not accepting orders.')
+  }
+  if (process.env.NODE_ENV === 'production' && (!Array.isArray(catalogProducts) || catalogProducts.length === 0)) {
+    throw new Error('The live product catalog is unavailable. Please try again later.')
   }
 
   const productsList = (Array.isArray(catalogProducts) && catalogProducts.length > 0)
@@ -85,7 +92,7 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', pa
   }
 
   // Authoritative Check: Validate First Order eligibility by customer phone & email against database
-  let effectiveFirstOrder = isFirstOrder !== undefined && isFirstOrder !== null ? Boolean(isFirstOrder) : true
+  let effectiveFirstOrder = false
   if (customer && Array.isArray(dbOrders)) {
     const custPhone = String(customer.phone || customer.mobile || '').trim().toLowerCase()
     const custEmail = String(customer.email || '').trim().toLowerCase()
@@ -96,9 +103,7 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', pa
         const e = String(c.email || '').trim().toLowerCase()
         return (custPhone && p && p === custPhone) || (custEmail && e && e === custEmail)
       })
-      if (hasPreviousOrder) {
-        effectiveFirstOrder = false
-      }
+      effectiveFirstOrder = !hasPreviousOrder
     }
   }
 
@@ -107,7 +112,7 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', pa
   if (effectiveFirstOrder) {
     const freeBunItem = validatedItems.find((i) => (i.slug || '').toLowerCase() === 'classic-bun-maska')
     if (freeBunItem) {
-      firstOrderFreeBunDiscount = Number(freeBunItem.price || 35)
+      firstOrderFreeBunDiscount = Number(freeBunItem.price || 35) * Math.min(1, freeBunItem.quantity)
     }
   }
 
@@ -117,7 +122,7 @@ export async function recalculateOrderOnServer({ items = [], couponCode = '', pa
 
   if (couponCode && String(couponCode).trim()) {
     const code = String(couponCode).trim().toUpperCase()
-    const foundCoupon = SERVER_COUPONS.find((c) => c.code === code)
+    const foundCoupon = (Array.isArray(coupons) ? coupons : SERVER_COUPONS).find((c) => c.code === code && c.active !== false)
 
     if (foundCoupon) {
       if (rawSubtotal >= foundCoupon.minOrder) {

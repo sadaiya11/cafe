@@ -26,7 +26,17 @@ const PORT = process.env.PORT || 5000
 
 // Middleware
 app.use(cors())
-app.use(express.json({ limit: '3mb' }))
+app.use(express.json({
+  limit: '3mb',
+  verify: (req, res, buffer) => {
+    if (req.originalUrl?.startsWith('/api/payments/webhook')) req.rawBody = Buffer.from(buffer)
+  },
+}))
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, max-age=0')
+  res.setHeader('Pragma', 'no-cache')
+  next()
+})
 
 async function authenticateRequest(req, res, next) {
   const token = getBearerToken(req)
@@ -119,15 +129,15 @@ async function uploadProductImage(slug, dataUrl, contentType = 'image/jpeg') {
 // Health Check Endpoint (Includes Supabase & Prisma Status)
 app.get('/api/health', async (req, res) => {
   try {
-    const userCount = await prisma.user.count().catch(() => 0)
+    const userCount = await prisma.user.count()
     res.json({
       status: 'ok',
       message: 'Bun Maska Cafe Backend & Supabase Database API is running',
       database: 'Connected to Supabase via Prisma',
       stats: { totalUsers: userCount },
     })
-  } catch (err) {
-    res.json({ status: 'ok', databaseError: err.message })
+  } catch {
+    res.status(503).json({ status: 'error', database: 'unavailable', error: 'Database health check failed.' })
   }
 })
 
@@ -140,12 +150,12 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase()
-    if (password.trim().length < 4) {
-      return res.status(400).json({ error: 'Password must be at least 4 characters long.' })
+    if (password.trim().length < 12) {
+      return res.status(400).json({ error: 'Password must be at least 12 characters long.' })
     }
 
     const requestedRole = String(role || 'CUSTOMER').toUpperCase()
-    const allowedRoles = ['CUSTOMER', 'STAFF', 'ADMIN']
+    const allowedRoles = ['CUSTOMER', 'ADMIN']
     if (!allowedRoles.includes(requestedRole)) {
       return res.status(400).json({ error: 'Invalid account role specified.' })
     }
@@ -236,10 +246,13 @@ app.post('/api/auth/logout', async (req, res) => {
     if (token) {
       const claims = verifyAccessToken(token)
       if (claims?.sub) {
-        await prisma.user.update({ where: { id: String(claims.sub) }, data: { tokenVersion: { increment: 1 } } }).catch(() => {})
+        await prisma.user.update({ where: { id: String(claims.sub) }, data: { tokenVersion: { increment: 1 } } }).catch((error) => {
+          console.warn('Session invalidation warning during logout:', error.message)
+        })
       }
     }
-  } catch (error) {
+
+  } catch {
     // Ignore invalid or expired tokens during logout
   }
   res.json({ success: true })
@@ -392,8 +405,8 @@ const verifyResetToken = (token, email) => {
 }
 
 async function sendResetEmail(toEmail, resetLink) {
-  const emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER || 'sadaiya11@gmail.com'
-  const emailPass = process.env.EMAIL_PASSWORD || process.env.GMAIL_PASS || process.env.EMAIL_PASS || 'jbcr skgv pilj jbsg'
+  const emailUser = process.env.EMAIL_USER || process.env.GMAIL_USER
+  const emailPass = process.env.EMAIL_PASSWORD || process.env.GMAIL_PASS || process.env.EMAIL_PASS
   const emailHost = process.env.EMAIL_HOST || 'smtp.gmail.com'
   const emailPort = Number(process.env.EMAIL_PORT) || 587
   const emailFrom = process.env.EMAIL_FROM || `Bun Maska Cafe <${emailUser}>`
@@ -476,7 +489,7 @@ async function sendResetEmail(toEmail, resetLink) {
 // Route: POST /api/auth/forgot-password - Send password reset link to user's email
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
-    const { email, origin } = req.body
+    const { email } = req.body
     if (!email || !email.trim()) {
       return res.status(400).json({ error: 'Please provide a valid registered email address.' })
     }
@@ -495,7 +508,11 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     }
     const token = createResetToken(normalizedEmail, expiresAt)
 
-    const baseUrl = origin || `${req.protocol}://${req.get('host')}`
+    const configuredBaseUrl = process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL
+    const baseUrl = (configuredBaseUrl || (process.env.NODE_ENV === 'production' ? '' : `${req.protocol}://${req.get('host')}`)).replace(/\/$/, '')
+    if (!baseUrl) {
+      return res.status(503).json({ error: 'Password reset public URL is not configured.' })
+    }
     const resetLink = `${baseUrl}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
 
     const sendResult = await sendResetEmail(normalizedEmail, resetLink)
@@ -523,8 +540,8 @@ app.post('/api/auth/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Email, token, and a new password are required.' })
     }
 
-    if (newPassword.trim().length < 4) {
-      return res.status(400).json({ error: 'New password must be at least 4 characters long.' })
+    if (newPassword.trim().length < 12) {
+      return res.status(400).json({ error: 'New password must be at least 12 characters long.' })
     }
 
     const normalizedEmail = email.trim().toLowerCase()
@@ -576,8 +593,8 @@ app.put('/api/auth/change-password', authenticateRequest, async (req, res) => {
       return res.status(400).json({ error: 'Incorrect current password. Please try again or use email reset.' })
     }
 
-    if (newPassword.trim().length < 4) {
-      return res.status(400).json({ error: 'New password must be at least 4 characters long.' })
+    if (newPassword.trim().length < 12) {
+      return res.status(400).json({ error: 'New password must be at least 12 characters long.' })
     }
 
     await prisma.user.update({
@@ -777,19 +794,16 @@ app.post('/api/db/slide-images', authenticateRequest, requireAdmin, async (req, 
 // Route: POST /api/db/orders - Save Order into Supabase DB via Prisma
 app.post('/api/db/orders', async (req, res) => {
   try {
-    const { orderId, customer, items = [], couponCode, paymentId, paymentMethod, paymentStatus, status = 'CONFIRMED', isFirstOrder } = req.body
+    const { customer, items = [], couponCode, paymentMethod, isFirstOrder } = req.body
 
-    const existingOrder = orderId
-      ? await prisma.order.findUnique({ where: { orderId }, include: { items: true } })
-      : null
-    if (existingOrder) {
-      return res.status(200).json({ success: true, order: existingOrder, alreadyExists: true })
+    if (String(paymentMethod || '').toUpperCase() !== 'COD') {
+      return res.status(400).json({ error: 'Online payments must be verified through the payment verification endpoint.' })
     }
 
     // 🛡️ Authoritative Server-Side Price & Order Recalculation
     const dbProducts = await prisma.product.findMany().catch(() => null)
     const dbSettings = await getDbSettings().catch(() => null)
-    const dbOrders = await prisma.order.findMany({ select: { customer: true } }).catch(() => [])
+    const dbOrders = await prisma.order.findMany({ select: { customer: true } }).catch(() => null)
     let calculated
     try {
       calculated = await recalculateOrderOnServer({
@@ -801,6 +815,7 @@ app.post('/api/db/orders', async (req, res) => {
         catalogProducts: dbProducts,
         storeSettings: dbSettings,
         dbOrders,
+        coupons: await getDbCoupons(),
       })
     } catch (calcErr) {
       return res.status(400).json({ error: calcErr.message })
@@ -808,14 +823,14 @@ app.post('/api/db/orders', async (req, res) => {
 
     const newOrder = await prisma.order.create({
       data: {
-        orderId: orderId || `BM-${Date.now()}`,
+        orderId: `BM-${crypto.randomUUID()}`,
         customer: customer || {},
         amount: calculated.finalPayableTotal, // AUTHORITATIVE RECALCULATED AMOUNT
         currency: 'INR',
-        status,
-        paymentId,
-        paymentMethod,
-        paymentStatus,
+        status: 'PENDING',
+        paymentId: null,
+        paymentMethod: 'COD',
+        paymentStatus: 'PENDING',
         items: {
           create: calculated.items.map((item) => ({
             title: item.title,
@@ -835,6 +850,60 @@ app.post('/api/db/orders', async (req, res) => {
   }
 })
 
+app.post('/api/pos/orders', authenticateRequest, requireStaffOrAdmin, async (req, res) => {
+  try {
+    const { customer = {}, items = [], paymentMethod, discountType, discountValue } = req.body || {}
+    const catalogProducts = await prisma.product.findMany()
+    const productsBySlug = new Map(catalogProducts.map((product) => [product.slug, product]))
+    const normalizedItems = items.map((item) => {
+      const product = productsBySlug.get(String(item.slug || '').toLowerCase())
+      if (!product) throw new Error('An item in the POS order is unavailable.')
+      return { ...item, size: item.size || product.variants?.[0]?.size || 'standard', slug: product.slug }
+    })
+    const calculated = await recalculateOrderOnServer({
+      items: normalizedItems,
+      paymentMethod: 'POS',
+      customer,
+      catalogProducts,
+      storeSettings: { ...DEFAULT_SETTINGS, ...(await getDbSettings()) },
+      dbOrders: null,
+      coupons: [],
+    })
+    const discountInput = Number(discountValue) || 0
+    if (!Number.isFinite(discountInput) || discountInput < 0 || (discountType === 'PERCENT' && discountInput > 100)) {
+      return res.status(400).json({ error: 'Invalid POS discount.' })
+    }
+    const discount = Math.min(calculated.subtotal, discountType === 'PERCENT' ? calculated.subtotal * discountInput / 100 : discountInput)
+    const total = Math.max(0, Math.round((calculated.subtotal - discount + calculated.taxAmount) * 100) / 100)
+    const paidMethods = ['CASH', 'UPI', 'CARD']
+    if (!paidMethods.includes(String(paymentMethod).toUpperCase())) return res.status(400).json({ error: 'Invalid POS payment method.' })
+    const orderId = `POS-${crypto.randomUUID()}`
+    const order = await prisma.order.create({
+      data: {
+        orderId,
+        customer: { ...customer, orderType: customer.orderType || 'COUNTER' },
+        amount: total,
+        currency: 'INR',
+        status: 'CONFIRMED',
+        paymentId: null,
+        paymentMethod: String(paymentMethod).toUpperCase() === 'COD' ? 'CASH' : String(paymentMethod).toUpperCase(),
+        paymentStatus: 'SUCCESS',
+        items: { create: calculated.items.map((item) => ({
+          productId: productsBySlug.get(item.slug)?.id,
+          title: item.title,
+          size: item.sizeLabel || item.size,
+          quantity: item.quantity,
+          price: item.price,
+        })) },
+      },
+      include: { items: true },
+    })
+    res.status(201).json({ success: true, order, calculation: { subtotal: calculated.subtotal, discount, tax: calculated.taxAmount, total } })
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Unable to save POS order.' })
+  }
+})
+
 // Route: GET /api/db/orders - Fetch Orders from Supabase DB via Prisma (Guest Lookup & Auth support)
 app.get('/api/db/orders', async (req, res) => {
   try {
@@ -844,13 +913,19 @@ app.get('/api/db/orders', async (req, res) => {
       try {
         const claims = verifyAccessToken(token)
         authUser = await prisma.user.findUnique({ where: { id: String(claims.sub) } })
+        if (!authUser || authUser.tokenVersion !== Number(claims.tokenVersion || 0)) {
+          return res.status(401).json({ error: 'Session expired. Please sign in again.' })
+        }
       } catch {
-        // Token invalid or expired - fallback to guest search
+        return res.status(401).json({ error: 'Invalid or expired session.' })
       }
     }
 
-    const { email: searchEmail, phone: searchPhone, orderId: searchOrderId, q: searchQ } = req.query || {}
-    const searchFilter = String(searchEmail || searchPhone || searchOrderId || searchQ || '').trim().toLowerCase()
+    if (req.query?.admin === 'true' && (!authUser || !ADMIN_ROLES.has(authUser.role))) {
+      return res.status(401).json({ error: 'Staff authentication required.' })
+    }
+
+    const { email: searchEmail, phone: searchPhone, orderId: searchOrderId } = req.query || {}
 
     const orders = await prisma.order.findMany({
       include: { items: true },
@@ -858,6 +933,7 @@ app.get('/api/db/orders', async (req, res) => {
     })
 
     if (authUser && ADMIN_ROLES.has(authUser.role)) {
+      const searchFilter = String(searchEmail || searchPhone || searchOrderId || '').trim().toLowerCase()
       const result = searchFilter
         ? orders.filter((o) => {
             const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
@@ -879,14 +955,13 @@ app.get('/api/db/orders', async (req, res) => {
       return res.json(customerOrders)
     }
 
-    // Guest User (Unauthenticated): Return orders matching search filter (phone, email, orderId)
-    if (searchFilter) {
+    // Public order lookup requires an exact order ID and matching phone number.
+    if (searchOrderId && searchPhone) {
+      const expectedPhone = String(searchPhone).replace(/\D/g, '')
       const guestOrders = orders.filter((o) => {
         const cust = o.customer && typeof o.customer === 'object' ? o.customer : {}
-        const orderId = String(o.orderId || o.id || '').toLowerCase()
-        const email = String(cust.email || '').toLowerCase()
-        const phone = String(cust.phone || '').toLowerCase()
-        return orderId.includes(searchFilter) || email.includes(searchFilter) || phone.includes(searchFilter)
+        const phone = String(cust.phone || cust.mobile || '').replace(/\D/g, '')
+        return String(o.orderId || '').toLowerCase() === String(searchOrderId).trim().toLowerCase() && phone === expectedPhone
       })
       return res.json(guestOrders)
     }
@@ -919,6 +994,9 @@ app.patch('/api/db/orders/:orderId/status', authenticateRequest, requireStaffOrA
 
 // Route: DELETE /api/db/orders - Delete All Orders for Client Handover
 app.delete('/api/db/orders', authenticateRequest, requireStaffOrAdmin, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Bulk order deletion is disabled in production.' })
+  }
   try {
     await prisma.orderItem.deleteMany({}).catch(() => null)
     await prisma.order.deleteMany({})
@@ -936,11 +1014,12 @@ app.delete('/api/db/orders', authenticateRequest, requireStaffOrAdmin, async (re
 app.post('/api/payments/create-order', async (req, res) => {
   try {
     const { items = [], couponCode, customer, isFirstOrder, currency = 'INR' } = req.body
+    if (currency !== 'INR') return res.status(400).json({ error: 'Only INR payments are supported.' })
 
     // 🛡️ Authoritative Server-Side Price & Order Recalculation
     const dbProducts = await prisma.product.findMany().catch(() => null)
     const dbSettings = await getDbSettings().catch(() => null)
-    const dbOrders = await prisma.order.findMany({ select: { customer: true } }).catch(() => [])
+    const dbOrders = await prisma.order.findMany({ select: { customer: true } }).catch(() => null)
     let calculated
     try {
       calculated = await recalculateOrderOnServer({
@@ -951,12 +1030,16 @@ app.post('/api/payments/create-order', async (req, res) => {
         catalogProducts: dbProducts,
         storeSettings: dbSettings,
         dbOrders,
+        coupons: await getDbCoupons(),
       })
     } catch (calcErr) {
       return res.status(400).json({ error: calcErr.message })
     }
 
     if (!hasRazorpayCredentials || !razorpay) {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({ error: 'Razorpay is not configured for production payments.' })
+      }
       return res.json({
         id: `order_demo_${Date.now()}`,
         entity: 'order',
@@ -1021,7 +1104,7 @@ app.post('/api/payments/verify', async (req, res) => {
     // 2. AUTHORITATIVE SERVER-SIDE PRICE & TOTAL RECALCULATION
     const dbProducts = await prisma.product.findMany().catch(() => null)
     const dbSettings = await getDbSettings().catch(() => null)
-    const dbOrders = await prisma.order.findMany({ select: { customer: true } }).catch(() => [])
+    const dbOrders = await prisma.order.findMany({ select: { customer: true } }).catch(() => null)
     let calculated
     try {
       calculated = await recalculateOrderOnServer({
@@ -1032,6 +1115,7 @@ app.post('/api/payments/verify', async (req, res) => {
         catalogProducts: dbProducts,
         storeSettings: dbSettings,
         dbOrders,
+        coupons: await getDbCoupons(),
       })
     } catch (calcErr) {
       return res.status(400).json({ error: `Server recalculation failed: ${calcErr.message}` })
@@ -1039,7 +1123,7 @@ app.post('/api/payments/verify', async (req, res) => {
 
     // 3. DEMO MODE FALLBACK (When credentials unconfigured)
     if (!keyId || !keySecret) {
-      if (String(razorpay_order_id).startsWith('order_demo_')) {
+      if (process.env.NODE_ENV !== 'production' && String(razorpay_order_id).startsWith('order_demo_')) {
         const createdOrder = await prisma.order.create({
           data: {
             orderId: razorpay_order_id,
@@ -1059,7 +1143,9 @@ app.post('/api/payments/verify', async (req, res) => {
             },
           },
           include: { items: true },
-        }).catch(() => null)
+        })
+
+        if (!createdOrder) return res.status(503).json({ error: 'Unable to save the demo order.' })
 
         return res.json({
           success: true,
@@ -1079,18 +1165,9 @@ app.post('/api/payments/verify', async (req, res) => {
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex')
 
-    if (razorpay_signature !== expectedSign) {
-      await prisma.order.create({
-        data: {
-          orderId: razorpay_order_id,
-          paymentId: razorpay_payment_id,
-          customer: customer || {},
-          amount: calculated.finalPayableTotal,
-          status: 'CANCELLED',
-          paymentMethod: 'RAZORPAY',
-          paymentStatus: 'FAILED',
-        },
-      }).catch(() => null)
+    const providedSignature = Buffer.from(String(razorpay_signature), 'hex')
+    const expectedSignature = Buffer.from(expectedSign, 'hex')
+    if (providedSignature.length !== expectedSignature.length || !crypto.timingSafeEqual(providedSignature, expectedSignature)) {
       return res.status(400).json({ success: false, error: 'Invalid payment signature' })
     }
 
@@ -1117,6 +1194,16 @@ app.post('/api/payments/verify', async (req, res) => {
       console.warn('Direct Razorpay order status check warning:', e.message)
     }
 
+    if (!rzpPayment || !rzpOrder) {
+      return res.status(503).json({ error: 'Unable to verify payment status with Razorpay. Please retry shortly.' })
+    }
+    if (rzpPayment.order_id !== razorpay_order_id || rzpOrder.id !== razorpay_order_id) {
+      return res.status(400).json({ error: 'Razorpay payment does not belong to this order.' })
+    }
+    if (rzpPayment.status !== 'captured' || rzpOrder.status !== 'paid') {
+      return res.status(400).json({ error: 'Razorpay has not confirmed a captured payment for this order.' })
+    }
+
     if (rzpPayment && ['failed', 'refunded'].includes(rzpPayment.status)) {
       await prisma.order.create({
         data: {
@@ -1133,8 +1220,8 @@ app.post('/api/payments/verify', async (req, res) => {
     }
 
     // 6. VERIFY RAZORPAY AMOUNT MATCHES SERVER-CALCULATED ORDER TOTAL
-    const rzpAmountInPaise = Number(rzpPayment?.amount ?? rzpOrder?.amount ?? 0)
-    if (rzpAmountInPaise > 0 && Math.abs(rzpAmountInPaise - calculated.amountInPaise) > 100) {
+    const rzpAmountInPaise = Number(rzpPayment.amount)
+    if (rzpAmountInPaise !== calculated.amountInPaise || Number(rzpOrder.amount) !== calculated.amountInPaise || rzpPayment.currency !== 'INR' || rzpOrder.currency !== 'INR') {
       await prisma.order.create({
         data: {
           orderId: razorpay_order_id,
@@ -1172,7 +1259,7 @@ app.post('/api/payments/verify', async (req, res) => {
         },
       },
       include: { items: true },
-    }).catch(() => null)
+    })
 
     return res.json({
       success: true,
@@ -1204,7 +1291,7 @@ app.post('/api/payments/webhook', async (req, res) => {
       return res.status(400).json({ error: 'Webhook secret or signature missing.' })
     }
 
-    const payloadString = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
+    const payloadString = req.rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
     const expectedSignature = crypto
       .createHmac('sha256', webhookSecret)
       .update(payloadString)
@@ -1255,8 +1342,8 @@ app.post('/api/payments/webhook', async (req, res) => {
 const DEFAULT_SETTINGS = {
   isStoreOpen: true,
   storeClosedNotice: 'Our cafe daily operating hours: 11:00 AM - 11:30 PM.',
-  deliveryFee: 4.99,
-  taxRate: 0.08,
+  deliveryFee: 20,
+  taxRate: 0,
   freeDeliveryThreshold: 500,
   storeName: 'Bun Maska Café',
   phone: '8085700750',
@@ -1337,12 +1424,11 @@ async function getDbSettings() {
       serverSettingsData = item.variants
       return item.variants
     }
-  } catch (err) { }
+  } catch (err) { console.warn('Prisma settings read warning:', err.message) }
   return serverSettingsData || DEFAULT_SETTINGS
 }
 
 async function saveDbSettings(settings) {
-  serverSettingsData = settings
   try {
     await prisma.product.upsert({
       where: { slug: '_system_store_settings' },
@@ -1359,8 +1445,9 @@ async function saveDbSettings(settings) {
       },
     })
   } catch (err) {
-    console.warn('Prisma save settings warning:', err.message)
+    throw new Error(`Prisma save settings failed: ${err.message}`)
   }
+  serverSettingsData = settings
 }
 
 async function getDbSlides() {
@@ -1370,12 +1457,11 @@ async function getDbSlides() {
       serverSlidesData = item.variants
       return item.variants
     }
-  } catch (err) { }
+  } catch (err) { console.warn('Prisma slides read warning:', err.message) }
   return serverSlidesData || DEFAULT_HERO_SLIDES
 }
 
 async function saveDbSlides(slides) {
-  serverSlidesData = slides
   try {
     await prisma.product.upsert({
       where: { slug: '_system_hero_slides' },
@@ -1392,8 +1478,9 @@ async function saveDbSlides(slides) {
       },
     })
   } catch (err) {
-    console.warn('Prisma save slides warning:', err.message)
+    throw new Error(`Prisma save slides failed: ${err.message}`)
   }
+  serverSlidesData = slides
 }
 
 async function getDbCoupons() {
@@ -1403,12 +1490,11 @@ async function getDbCoupons() {
       serverCouponsData = item.variants
       return item.variants
     }
-  } catch (err) { }
+  } catch (err) { console.warn('Prisma coupons read warning:', err.message) }
   return serverCouponsData || DEFAULT_COUPONS
 }
 
 async function saveDbCoupons(coupons) {
-  serverCouponsData = coupons
   try {
     await prisma.product.upsert({
       where: { slug: '_system_store_coupons' },
@@ -1425,8 +1511,9 @@ async function saveDbCoupons(coupons) {
       },
     })
   } catch (err) {
-    console.warn('Prisma save coupons warning:', err.message)
+    throw new Error(`Prisma save coupons failed: ${err.message}`)
   }
+  serverCouponsData = coupons
 }
 
 async function getAllDbReviews() {
@@ -1440,7 +1527,7 @@ async function getAllDbReviews() {
       const revs = Array.isArray(item.variants) ? item.variants : []
       revs.forEach((r) => allReviews.push({ ...r, productSlug: r.productSlug || pSlug }))
     }
-  } catch (err) {}
+  } catch (err) { console.warn('Prisma reviews read warning:', err.message) }
 
   for (const [pSlug, revs] of serverReviewsMap.entries()) {
     if (Array.isArray(revs)) {
@@ -1462,7 +1549,7 @@ async function getDbReviews(slug) {
       serverReviewsMap.set(slug, item.variants)
       return item.variants
     }
-  } catch (err) { }
+  } catch (err) { console.warn('Prisma review read warning:', err.message) }
   return serverReviewsMap.get(slug) || DEFAULT_REVIEWS
 }
 
@@ -1508,16 +1595,24 @@ app.put('/api/db/settings', authenticateRequest, requireAdmin, async (req, res) 
   if (!req.body || typeof req.body !== 'object') {
     return res.status(400).json({ error: 'Invalid settings body.' })
   }
-  await saveDbSettings(req.body)
-  res.json({ success: true, settings: req.body })
+  try {
+    await saveDbSettings(req.body)
+    res.json({ success: true, settings: req.body })
+  } catch (error) {
+    res.status(503).json({ error: error.message })
+  }
 })
 
 app.post('/api/db/settings', authenticateRequest, requireAdmin, async (req, res) => {
   if (!req.body || typeof req.body !== 'object') {
     return res.status(400).json({ error: 'Invalid settings body.' })
   }
-  await saveDbSettings(req.body)
-  res.json({ success: true, settings: req.body })
+  try {
+    await saveDbSettings(req.body)
+    res.json({ success: true, settings: req.body })
+  } catch (error) {
+    res.status(503).json({ error: error.message })
+  }
 })
 
 app.get('/api/db/slides', async (req, res) => {
@@ -1528,16 +1623,24 @@ app.put('/api/db/slides', authenticateRequest, requireAdmin, async (req, res) =>
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ error: 'Hero slides body must be an array.' })
   }
-  await saveDbSlides(req.body)
-  res.json({ success: true, slides: req.body })
+  try {
+    await saveDbSlides(req.body)
+    res.json({ success: true, slides: req.body })
+  } catch (error) {
+    res.status(503).json({ error: error.message })
+  }
 })
 
 app.post('/api/db/slides', authenticateRequest, requireAdmin, async (req, res) => {
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ error: 'Hero slides body must be an array.' })
   }
-  await saveDbSlides(req.body)
-  res.json({ success: true, slides: req.body })
+  try {
+    await saveDbSlides(req.body)
+    res.json({ success: true, slides: req.body })
+  } catch (error) {
+    res.status(503).json({ error: error.message })
+  }
 })
 
 app.get('/api/db/coupons', async (req, res) => {
@@ -1548,16 +1651,24 @@ app.put('/api/db/coupons', authenticateRequest, requireAdmin, async (req, res) =
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ error: 'Coupons body must be an array.' })
   }
-  await saveDbCoupons(req.body)
-  res.json({ success: true, coupons: req.body })
+  try {
+    await saveDbCoupons(req.body)
+    res.json({ success: true, coupons: req.body })
+  } catch (error) {
+    res.status(503).json({ error: error.message })
+  }
 })
 
 app.post('/api/db/coupons', authenticateRequest, requireAdmin, async (req, res) => {
   if (!Array.isArray(req.body)) {
     return res.status(400).json({ error: 'Coupons body must be an array.' })
   }
-  await saveDbCoupons(req.body)
-  res.json({ success: true, coupons: req.body })
+  try {
+    await saveDbCoupons(req.body)
+    res.json({ success: true, coupons: req.body })
+  } catch (error) {
+    res.status(503).json({ error: error.message })
+  }
 })
 
 app.get('/api/db/reviews', async (req, res) => {

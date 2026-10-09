@@ -6,7 +6,7 @@ import PosCheckoutModal from './components/PosCheckoutModal';
 import ThermalReceiptModal from './components/ThermalReceiptModal';
 import ShiftSummaryModal from './components/ShiftSummaryModal';
 import { getLocalCatalog, loadCatalog } from '../services/productCatalog';
-import { createOrder } from '../services/api';
+import { createPosOrder } from '../services/api';
 
 export default function PosApp() {
   const [products, setProducts] = useState(getLocalCatalog);
@@ -90,48 +90,33 @@ export default function PosApp() {
 
   // Complete Order & Save to Supabase API
   const handleCompleteOrder = async (paymentDetails) => {
-    const orderId = `POS-${Date.now().toString().slice(-6)}`;
+    const saved = await createPosOrder({
+      customer: {
+        name: customerName || 'Counter Guest',
+        phone: customerPhone || '',
+        orderType,
+        tableNumber: orderType === 'DINE_IN' ? (tableNumber || '01') : null,
+      },
+      items: cartItems.map((item) => ({ slug: item.slug || item.id, size: item.size || item.variants?.[0]?.size || 'standard', quantity: item.quantity })),
+      paymentMethod: paymentDetails.paymentMethod === 'CASH' ? 'COD' : paymentDetails.paymentMethod,
+      discountType: checkoutTotals.discountType,
+      discountValue: checkoutTotals.discountInput,
+    });
+    const savedOrder = saved.order;
+    const savedCalculation = saved.calculation || {};
     const finalOrder = {
-      id: orderId,
-      orderId,
-      orderType,
-      tableNumber: orderType === 'DINE_IN' ? (tableNumber || '01') : null,
+      ...savedOrder,
+      id: savedOrder.orderId,
+      subtotal: savedCalculation.subtotal,
+      discountVal: savedCalculation.discount,
+      gstTax: savedCalculation.tax,
+      finalTotal: savedCalculation.total ?? savedOrder.amount,
+      paymentMethod: savedOrder.paymentMethod,
       customerName: customerName || 'Counter Guest',
       phone: customerPhone || '',
-      items: cartItems,
-      subtotal: checkoutTotals.subtotal,
-      discountVal: checkoutTotals.discountVal,
-      gstTax: checkoutTotals.gstTax,
-      finalTotal: checkoutTotals.finalTotal,
-      amount: checkoutTotals.finalTotal,
-      paymentMethod: paymentDetails.paymentMethod,
-      paymentStatus: paymentDetails.paymentStatus,
       paymentDetails,
-      createdAt: new Date().toISOString(),
-      status: 'CONFIRMED'
+      items: savedOrder.items,
     };
-
-    // Save order to Express backend & Supabase DB
-    try {
-      await createOrder({
-        orderId,
-        customer: {
-          name: finalOrder.customerName,
-          phone: finalOrder.phone,
-          orderType,
-          tableNumber: finalOrder.tableNumber
-        },
-        amount: checkoutTotals.finalTotal,
-        currency: 'INR',
-        items: cartItems,
-        paymentId: paymentDetails.cardTxnId || `${paymentDetails.paymentMethod}_${orderId}`,
-        paymentMethod: paymentDetails.paymentMethod,
-        paymentStatus: paymentDetails.paymentStatus,
-        status: 'CONFIRMED'
-      });
-    } catch (e) {
-      console.warn('POS order save fallback notice:', e.message);
-    }
 
     // Add to local shift orders
     setShiftOrders(prev => [finalOrder, ...prev]);

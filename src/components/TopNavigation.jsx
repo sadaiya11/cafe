@@ -4,7 +4,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { logout } from '../store/authSlice'
 import { logoutUser } from '../services/api'
-import { getStoreSettings, isStoreCurrentlyOpen } from '../services/storeSettingsService'
+import { getStoreSettings } from '../services/storeSettingsService'
 import {
   getCustomerNotificationsHistory,
   markAllNotificationsAsRead,
@@ -66,8 +66,6 @@ export default function TopNavigation({ brand = 'Bun Maska Café', cartCount = 0
     setMenuOpen(false)
     navigate('/dashboard')
   }
-
-  const isStoreOpen = isStoreCurrentlyOpen(storeSettings)
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">

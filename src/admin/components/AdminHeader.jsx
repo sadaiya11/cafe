@@ -6,9 +6,6 @@ import { getSavedSoundType, SOUND_TYPES, playNewOrderAlert } from '../services/s
 export default function AdminHeader({ 
   soundEnabled, 
   onToggleSound, 
-  onTestSound, 
-  onRefresh, 
-  isRefreshing, 
   activeOrdersCount,
   searchTerm,
   setSearchTerm 

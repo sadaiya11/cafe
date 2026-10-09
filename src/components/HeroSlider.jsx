@@ -45,7 +45,7 @@ export default function HeroSlider() {
           src={slide.image}
           alt={slide.title}
           loading="eager"
-          fetchpriority="high"
+          fetchPriority="high"
           decoding="async"
           className="h-full w-full object-cover opacity-75"
         />

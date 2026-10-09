@@ -36,8 +36,13 @@ export default function CouponsManagerView() {
     };
 
     const updated = [newCoupon, ...coupons.filter(c => c.code !== newCoupon.code)];
-    setCoupons(updated);
-    await saveCoupons(updated);
+    try {
+      await saveCoupons(updated);
+      setCoupons(updated);
+    } catch (error) {
+      setNotice(`Unable to save coupon: ${error.message}`);
+      return;
+    }
 
     setCode('');
     setValue('');
@@ -48,15 +53,24 @@ export default function CouponsManagerView() {
 
   const toggleActive = async (couponCode) => {
     const updated = coupons.map(c => c.code === couponCode ? { ...c, active: !c.active } : c);
-    setCoupons(updated);
-    await saveCoupons(updated);
+    try {
+      await saveCoupons(updated);
+      setCoupons(updated);
+    } catch (error) {
+      setNotice(`Unable to update coupon: ${error.message}`);
+    }
   };
 
   const handleDelete = async (couponCode) => {
     if (window.confirm(`Delete coupon "${couponCode}"?`)) {
       const updated = coupons.filter(c => c.code !== couponCode);
-      setCoupons(updated);
-      await saveCoupons(updated);
+      try {
+        await saveCoupons(updated);
+        setCoupons(updated);
+      } catch (error) {
+        setNotice(`Unable to delete coupon: ${error.message}`);
+        return;
+      }
       setNotice(`🗑️ Coupon "${couponCode}" deleted.`);
     }
   };

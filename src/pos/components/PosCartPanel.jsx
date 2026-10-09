@@ -216,7 +216,7 @@ export default function PosCartPanel({
         {/* Pay Button */}
         <button
           disabled={cartItems.length === 0}
-          onClick={() => onProceedToCheckout({ subtotal, discountVal, gstTax, finalTotal })}
+          onClick={() => onProceedToCheckout({ subtotal, discountVal, gstTax, finalTotal, discountType, discountInput: parseFloat(discountAmount) || 0 })}
           className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black rounded-xl text-base tracking-wide shadow-xl shadow-amber-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 flex items-center justify-center space-x-2"
         >
           <span>💳 PAY & CHARGE</span>

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import SectionHeader from '../components/SectionHeader'
 import SEO from '../components/SEO'
 import { getOrders } from '../services/api'
-import { useCart } from '../context/useCart'
+import { startOrderStatusWatcher } from '../services/orderStatusWatcher'
 
 const formatPrice = (price) => `₹${Number(price || 0).toFixed(2)}`
 
@@ -21,16 +21,18 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const navigate = useNavigate()
-  const { addItem } = useCart()
 
   const fetchOrders = async (query = '') => {
     setLoading(true)
     setError(null)
 
     try {
-      const q = query !== undefined && query !== '' ? query : (searchQuery || user?.email || '')
-      const data = await getOrders(q)
+      const searchValue = query !== undefined && query !== '' ? query : searchQuery
+      const data = user?.email
+        ? await getOrders(user.email)
+        : searchValue.includes('|')
+          ? await getOrders({ orderId: searchValue.split('|', 2)[0], phone: searchValue.split('|', 2)[1] })
+          : []
       setOrders(data)
     } catch (err) {
       console.warn('Using fallback orders due to network/server:', err.message)
@@ -42,28 +44,30 @@ export default function OrdersPage() {
   }
 
   useEffect(() => {
-    fetchOrders()
+    let active = true
+    setLoading(true)
+    setError(null)
+    if (!user?.email) {
+      setOrders([])
+      setLoading(false)
+      return () => { active = false }
+    }
+
+    getOrders(user.email)
+      .then((data) => { if (active) setOrders(data) })
+      .catch((err) => {
+        if (!active) return
+        setError(err.message)
+        setOrders([])
+      })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [user?.email])
 
-  const handleReorder = (order) => {
-    const itemsList = Array.isArray(order.items) ? order.items : Array.isArray(order.order_items) ? order.order_items : []
-    if (!itemsList.length) return
-
-    itemsList.forEach((item) => {
-      const productObj = {
-        id: item.id || item.slug || item.title,
-        slug: item.slug || item.title?.toLowerCase().replace(/\s+/g, '-'),
-        title: item.title || item.name || 'Food Item',
-        price: Number(item.price || 0),
-        image: item.image || '',
-      }
-      const variantStr = item.sizeLabel || item.size || 'standard'
-      const qty = Number(item.quantity) || 1
-      addItem(productObj, variantStr, qty)
-    })
-
-    navigate('/cart')
-  }
+  useEffect(() => {
+    if (!user?.email) return undefined
+    return startOrderStatusWatcher(user.email, 8000, setOrders)
+  }, [user?.email])
 
   const getStepProgress = (currentStatus) => {
     const norm = String(currentStatus || 'CONFIRMED').toUpperCase()
@@ -116,7 +120,7 @@ export default function OrdersPage() {
           >
             <input
               type="text"
-              placeholder="Enter your Order ID (e.g. BM-1729...), Phone Number, or Email"
+              placeholder="Order ID|phone (e.g. BM-abc123|8085700750)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-orange-500"

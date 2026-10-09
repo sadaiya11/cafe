@@ -133,9 +133,6 @@ export async function saveStoreSettings(settings) {
   try {
     const current = getStoreSettings()
     const updated = { ...current, ...settings }
-    localStorage.setItem(STORE_SETTINGS_KEY, JSON.stringify(updated))
-    window.dispatchEvent(new Event('bun_store_settings_updated'))
-
     const res = await fetch(`${API_BASE}/settings`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...staffHeaders() },
@@ -143,13 +140,15 @@ export async function saveStoreSettings(settings) {
     })
     if (res.ok) {
       const data = await res.json()
-      if (data?.settings) return data.settings
+      const saved = data?.settings || updated
+      localStorage.setItem(STORE_SETTINGS_KEY, JSON.stringify(saved))
+      window.dispatchEvent(new Event('bun_store_settings_updated'))
+      return saved
     }
-
-    return updated
+    throw new Error(`Unable to save store settings (HTTP ${res.status}).`)
   } catch (e) {
     console.warn('Failed to save store settings:', e)
-    return DEFAULT_SETTINGS
+    throw e
   }
 }
 
@@ -181,9 +180,6 @@ export async function fetchHeroSlidesFromServer() {
 
 export async function saveHeroSlides(slides) {
   try {
-    localStorage.setItem(HERO_SLIDES_KEY, JSON.stringify(slides))
-    window.dispatchEvent(new Event('bun_hero_slides_updated'))
-
     const res = await fetch(`${API_BASE}/slides`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...staffHeaders() },
@@ -191,13 +187,15 @@ export async function saveHeroSlides(slides) {
     })
     if (res.ok) {
       const data = await res.json()
-      if (data?.slides) return data.slides
+      const saved = data?.slides || slides
+      localStorage.setItem(HERO_SLIDES_KEY, JSON.stringify(saved))
+      window.dispatchEvent(new Event('bun_hero_slides_updated'))
+      return saved
     }
-
-    return slides
+    throw new Error(`Unable to save hero slides (HTTP ${res.status}).`)
   } catch (e) {
     console.warn('Failed to save hero slides:', e)
-    return DEFAULT_HERO_SLIDES
+    throw e
   }
 }
 

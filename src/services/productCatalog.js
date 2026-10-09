@@ -78,15 +78,11 @@ export async function updateCatalogProduct(product) {
     updatedAt: Date.now(),
   })
 
-  // Update local memory cache immediately
-  const current = getLocalCatalog().filter((item) => item.slug !== normalized.slug)
-  const nextLocal = [...current, normalized]
-  storeProducts(nextLocal)
-
   const saved = await saveProduct(normalized)
   if (saved?.slug || saved?.title) {
     const savedItem = normalizeProduct({ ...normalized, ...(saved || {}) })
-    await loadCatalog()
+    const current = getLocalCatalog().filter((item) => item.slug !== savedItem.slug)
+    storeProducts([...current, savedItem])
     window.dispatchEvent(new Event('bun_catalog_updated'))
     return savedItem
   }
@@ -119,24 +115,16 @@ export async function addNewCatalogProduct(productData) {
     ]
   })
 
-  // Update local memory cache immediately
-  const current = getLocalCatalog().filter((item) => item.slug !== slug)
-  storeProducts([...current, newProduct])
-
   const created = await createProduct(newProduct)
   const resultItem = created && (created.slug || created.title) ? normalizeProduct({ ...newProduct, ...created }) : newProduct
-  await loadCatalog()
+  const current = getLocalCatalog().filter((item) => item.slug !== slug)
+  storeProducts([...current, resultItem])
   window.dispatchEvent(new Event('bun_catalog_updated'))
   return resultItem
 }
 
 export async function deleteCatalogProduct(slug) {
-  try {
-    await deleteProduct(slug)
-  } catch (e) {
-    console.warn('API delete product notice:', e.message)
-  }
-
+  await deleteProduct(slug)
   const current = getLocalCatalog().filter((item) => item.slug !== slug)
   storeProducts(current)
   await loadCatalog()

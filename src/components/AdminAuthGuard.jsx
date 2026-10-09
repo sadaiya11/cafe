@@ -15,7 +15,7 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
   const [regEmail, setRegEmail] = useState('')
   const [regName, setRegName] = useState('')
   const [regPassword, setRegPassword] = useState('')
-  const [regRole, setRegRole] = useState('STAFF')
+  const [regRole] = useState('ADMIN')
   const [regAdminSecret, setRegAdminSecret] = useState('')
 
   const [loading, setLoading] = useState(false)
@@ -85,8 +85,8 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
       return
     }
 
-    if (regPassword.trim().length < 4) {
-      setErrorNotice('Password must be at least 4 characters long.')
+    if (regPassword.trim().length < 12) {
+      setErrorNotice('Password must be at least 12 characters long.')
       return
     }
 
@@ -212,18 +212,6 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
                 onChange={(e) => setRegName(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
               />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-300 block mb-1">Role *</label>
-              <select
-                value={regRole}
-                onChange={(e) => setRegRole(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
-              >
-                <option value="STAFF">Staff</option>
-                <option value="ADMIN">Admin</option>
-              </select>
             </div>
 
             <div>

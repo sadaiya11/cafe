@@ -55,7 +55,7 @@ export function getSavedSoundType() {
 export function saveSoundType(typeId) {
   try {
     localStorage.setItem(SOUND_STORAGE_KEY, typeId)
-  } catch {}
+  } catch { /* Audio playback may be unavailable until user interaction. */ }
 }
 
 /** Speak voice announcement using Web Speech API */

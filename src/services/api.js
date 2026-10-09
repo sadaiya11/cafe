@@ -140,6 +140,18 @@ export async function createOrder(orderPayload) {
   return response.json()
 }
 
+export async function createPosOrder(orderPayload) {
+  const response = await fetch(`${API_BASE_URL}/api/pos/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(orderPayload),
+  })
+  handleCustomerResponse(response)
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.error || 'Unable to save POS order.')
+  return data
+}
+
 export function getOrderTimestamp(order) {
   if (!order) return 0
   const rawDate = order.createdAt || order.created_at || order.orderDate || order.date
@@ -159,40 +171,35 @@ export function getOrderTimestamp(order) {
 /**
  * 2. Get User Orders from Supabase Database via API (with merged local order state)
  */
-export async function getOrders(userEmail = '') {
-  const query = userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''
-  let orders = []
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/db/orders${query}`, { headers: authHeaders() })
-    if (response.ok) {
-      orders = await response.json()
-    }
-  } catch (err) {
-    console.warn('API getOrders fallback to local storage:', err.message)
+export async function getOrders(lookup = '') {
+  const queryParams = new URLSearchParams()
+  if (lookup && typeof lookup === 'object') {
+    if (lookup.orderId) queryParams.set('orderId', lookup.orderId)
+    if (lookup.phone) queryParams.set('phone', lookup.phone)
+    if (lookup.email) queryParams.set('email', lookup.email)
+  } else if (lookup) {
+    queryParams.set('email', lookup)
   }
-
-  let localOrders = []
-  try {
-    const data = localStorage.getItem('bun_maska_user_orders')
-    localOrders = data ? JSON.parse(data) : []
-  } catch (err) {
-    console.warn('Error reading local orders:', err)
+  const query = queryParams.size ? `?${queryParams.toString()}` : ''
+  const response = await fetch(`${API_BASE_URL}/api/db/orders${query}`, { headers: authHeaders() })
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.error || 'Unable to fetch orders.')
   }
+  const result = await response.json()
+  let combined = Array.isArray(result) ? result : []
 
-  const apiOrderIds = new Set(orders.map((o) => o.orderId || o.id))
-  const uniqueLocal = localOrders.filter((o) => !apiOrderIds.has(o.orderId || o.id))
-  let combined = [...orders, ...uniqueLocal]
-
-  if (userEmail && String(userEmail).trim()) {
-    const q = String(userEmail).trim().toLowerCase()
-    combined = combined.filter((o) => {
+  if (lookup && typeof lookup === 'object') {
+    const lookupId = String(lookup.orderId || '').trim().toLowerCase()
+    const lookupPhone = String(lookup.phone || '').replace(/\D/g, '')
+    combined = lookupId && lookupPhone ? combined.filter((o) => {
       const cust = o.customer || {}
-      const orderId = String(o.orderId || o.id || '').toLowerCase()
-      const email = String(cust.email || '').toLowerCase()
-      const phone = String(cust.phone || '').toLowerCase()
-      return orderId.includes(q) || email.includes(q) || phone.includes(q)
-    })
+      const phone = String(cust.phone || cust.mobile || '').replace(/\D/g, '')
+      return String(o.orderId || '').trim().toLowerCase() === lookupId && phone === lookupPhone
+    }) : []
+  } else if (lookup && String(lookup).trim()) {
+    const q = String(lookup).trim().toLowerCase()
+    combined = combined.filter((o) => String(o.customer?.email || '').trim().toLowerCase() === q)
   }
 
   const mapped = combined.map((o) => ({

@@ -34,7 +34,7 @@ function loadRazorpayScript() {
 }
 
 export default function CheckoutPage() {
-  const { items, addItem, subtotal, delivery, tax, total, isFreeDelivery, freeDeliveryThreshold, clearCart, storeSettings } = useCart()
+  const { items, addItem, subtotal, delivery, taxRate, isFreeDelivery, freeDeliveryThreshold, clearCart, storeSettings } = useCart()
   const remainingForFreeDelivery = freeDeliveryThreshold ? Math.max(0, freeDeliveryThreshold - subtotal) : 0
   const { user } = useSelector((state) => state.auth)
   const [paymentMethod, setPaymentMethod] = useState('razorpay')
@@ -76,6 +76,7 @@ export default function CheckoutPage() {
   const [status, setStatus] = useState(null)
   const [processing, setProcessing] = useState(false)
   const [demoPaymentOpen, setDemoPaymentOpen] = useState(false)
+  const [demoOrderId, setDemoOrderId] = useState('')
 
   // Coupon state
   const [couponCode, setCouponCode] = useState('')
@@ -144,7 +145,9 @@ export default function CheckoutPage() {
 
   const isCodFeeWaived = subtotal >= 220
   const codFee = paymentMethod === 'cod' ? (isCodFeeWaived ? 0 : 8) : 0
-  const finalPayableTotal = Math.max(0, total - appliedDiscount - firstOrderFreeBunDiscount + codFee)
+  const discountedSubtotal = Math.max(0, subtotal - appliedDiscount - firstOrderFreeBunDiscount)
+  const tax = Math.round(discountedSubtotal * taxRate * 100) / 100
+  const finalPayableTotal = Math.max(0, discountedSubtotal + delivery + tax + codFee)
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -191,16 +194,22 @@ export default function CheckoutPage() {
     }
 
     let createdResult = null
-    if (paymentMethod === 'cod' || payment.isDemo) {
+    if (paymentMethod === 'cod') {
       try {
         createdResult = await createOrder(orderPayload)
       } catch (e) {
         console.warn('Backend database create order warning:', e.message)
+        setStatus({ type: 'failure', message: 'We could not save your order. Please retry before leaving checkout.' })
+        return false
+      }
+      if (!createdResult?.order) {
+        setStatus({ type: 'failure', message: 'The server did not confirm your order. Please retry checkout.' })
+        return false
       }
     }
 
-    // Use server-verified order if available
-    const finalOrderObj = createdResult?.order || {
+    // Use only server-persisted order data when available.
+    const finalOrderObj = payment.order || createdResult?.order || {
       ...orderPayload,
       amount: finalPayableTotal,
       items,
@@ -215,9 +224,10 @@ export default function CheckoutPage() {
     }
 
     const finalId = finalOrderObj.orderId || orderPayload.orderId
-    notifyOrderConfirmed(finalId, finalPayableTotal)
+    const confirmedAmount = Number(finalOrderObj.amount ?? finalPayableTotal)
+    notifyOrderConfirmed(finalId, confirmedAmount)
     if (paymentMethod !== 'cod' || payment.isDemo) {
-      notifyPaymentSuccess(finalId, finalPayableTotal)
+      notifyPaymentSuccess(finalId, confirmedAmount)
     }
 
     setStatus({ type: 'success', message, orderId: finalId })
@@ -264,6 +274,7 @@ export default function CheckoutPage() {
       }
 
       if (order.isDemo) {
+        setDemoOrderId(order.id)
         setDemoPaymentOpen(true)
         return
       }
@@ -299,7 +310,7 @@ export default function CheckoutPage() {
             })
             const verifyData = await verifyRes.json()
             if (verifyData.success) {
-              completeOrder('Your payment was verified successfully and your order is being prepared!', response.razorpay_order_id, { paymentId: response.razorpay_payment_id })
+              completeOrder('Your payment was verified successfully and your order is being prepared!', response.razorpay_order_id, { paymentId: response.razorpay_payment_id, order: verifyData.order })
             } else {
               failPayment(verifyData.error || 'Payment verification failed.')
             }
@@ -317,8 +328,8 @@ export default function CheckoutPage() {
       })
       rzp.open()
     } catch (err) {
-      console.warn('Razorpay live endpoint unavailable, opening demo payment sheet:', err.message)
-      setDemoPaymentOpen(true)
+      console.error('Razorpay checkout failed:', err)
+      failPayment(err.message || 'Unable to start online payment. Please try again or choose Cash on Delivery.')
     } finally {
       setProcessing(false)
     }
@@ -519,6 +530,10 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {tax > 0 && (
+                <div className="flex justify-between"><span>Tax</span><span>{formatPrice(tax)}</span></div>
+              )}
+
               <div className="flex justify-between"><span>Delivery</span><span>{formatPrice(delivery)}</span></div>
 
               {paymentMethod === 'cod' && !isCodFeeWaived && (
@@ -550,7 +565,29 @@ export default function CheckoutPage() {
         <DemoPaymentModal
           amount={finalPayableTotal}
           onClose={() => setDemoPaymentOpen(false)}
-          onSuccess={(orderId) => { setDemoPaymentOpen(false); completeOrder('Your online payment was successful!', orderId, { isDemo: true, paymentId: orderId }) }}
+          onSuccess={async (paymentId) => {
+            try {
+              const verifyRes = await fetch(`${API_BASE_URL}/api/payments/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: demoOrderId,
+                  razorpay_payment_id: paymentId,
+                  razorpay_signature: 'demo-signature',
+                  customer: form,
+                  items: items.map((item) => ({ slug: item.slug || item.id, size: item.size || item.sizeLabel || 'standard', quantity: Number(item.quantity) || 1 })),
+                  couponCode,
+                  isFirstOrder,
+                }),
+              })
+              const result = await verifyRes.json()
+              if (!verifyRes.ok || !result.success) throw new Error(result.error || 'Demo payment verification failed.')
+              setDemoPaymentOpen(false)
+              completeOrder('Demo payment recorded. No real payment was charged.', demoOrderId, { paymentId, order: result.order })
+            } catch (error) {
+              setStatus({ type: 'failure', message: error.message })
+            }
+          }}
           onFailure={(message) => { setDemoPaymentOpen(false); failPayment(message) }}
         />
       ) : null}

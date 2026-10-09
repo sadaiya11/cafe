@@ -59,7 +59,7 @@ export async function fetchCoupons() {
     const res = await fetch(`${API_BASE_URL}/api/db/coupons`)
     if (res.ok) {
       const data = await res.json()
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         cachedCoupons = data
         return data
       }
@@ -78,7 +78,6 @@ export function getCoupons() {
 }
 
 export async function saveCoupons(coupons) {
-  cachedCoupons = coupons
   try {
     const res = await fetch(`${API_BASE_URL}/api/db/coupons`, {
       method: 'PUT',
@@ -93,10 +92,11 @@ export async function saveCoupons(coupons) {
       if (data.coupons) cachedCoupons = data.coupons
       return cachedCoupons
     }
+    throw new Error(`Unable to save coupons (HTTP ${res.status}).`)
   } catch (e) {
     console.warn('DB coupons save notice:', e.message)
+    throw e
   }
-  return coupons
 }
 
 export async function validateCoupon(code, subtotal) {

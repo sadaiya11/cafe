@@ -5,7 +5,7 @@ import SEO from '../components/SEO'
 const formatPrice = (price) => `₹${price.toFixed(2)}`
 
 export default function CartPage() {
-  const { items, addItem, subtotal, delivery, tax, taxRate, isFreeDelivery, freeDeliveryThreshold, total, itemCount, updateQuantity, removeItem, storeSettings } = useCart()
+  const { items, addItem, subtotal, delivery, isFreeDelivery, freeDeliveryThreshold, total, itemCount, updateQuantity, removeItem, storeSettings } = useCart()
 
   const isStoreOpen = storeSettings?.isStoreOpen !== false
   const remainingForFreeDelivery = freeDeliveryThreshold ? Math.max(0, freeDeliveryThreshold - subtotal) : 0

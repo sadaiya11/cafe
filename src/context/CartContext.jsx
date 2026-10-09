@@ -72,8 +72,8 @@ export function CartProvider({ children }) {
     const freeThreshold = Number(storeSettings.freeDeliveryThreshold ?? 220)
     const isFreeDelivery = freeThreshold > 0 && subtotal >= freeThreshold
     const delivery = items.length ? (isFreeDelivery ? 0 : baseDeliveryFee) : 0
-    const tax = 0
-    const taxRate = 0
+    const taxRate = Number(storeSettings.taxRate ?? 0)
+    const tax = Math.round(subtotal * taxRate * 100) / 100
 
     return {
       subtotal,
@@ -82,7 +82,7 @@ export function CartProvider({ children }) {
       taxRate,
       isFreeDelivery,
       freeDeliveryThreshold: freeThreshold,
-      total: subtotal + delivery,
+      total: subtotal + delivery + tax,
       itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
     }
   }, [items, storeSettings])
