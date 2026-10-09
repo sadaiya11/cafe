@@ -298,11 +298,14 @@ async function saveOrder(body, verifiedPayment = false) {
       method: 'POST',
       headers: { Prefer: 'return=minimal' },
       body: JSON.stringify(calculated.items.map((item) => ({
+        id: crypto.randomUUID(),
         orderId: order.id,
         title: item.title,
         size: item.sizeLabel || item.size || 'standard',
         quantity: Number(item.quantity),
         price: Number(item.price), // AUTHORITATIVE UNIT PRICE
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }))),
     })
     if (itemResult.status >= 400) return itemResult
@@ -366,11 +369,14 @@ async function createPosOrder(body, authUser) {
     method: 'POST',
     headers: { Prefer: 'return=minimal' },
     body: JSON.stringify(calculated.items.map((item) => ({
+      id: crypto.randomUUID(),
       orderId: order.id,
       title: item.title,
       size: item.sizeLabel || item.size,
       quantity: item.quantity,
       price: item.price,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }))),
   })
   if (itemResult.status >= 400) return itemResult
