@@ -20,26 +20,53 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [lookupOrderId, setLookupOrderId] = useState('')
+  const [lookupPhone, setLookupPhone] = useState('')
 
-  const fetchOrders = async (query = '') => {
+  const handleOrderSearch = async (event) => {
+    event.preventDefault()
+    if (user?.email) {
+      setLoading(true)
+      setError(null)
+      try {
+        setOrders(await getOrders(user.email))
+      } catch (err) {
+        setError(err.message || 'Unable to load your orders.')
+        setOrders([])
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    if (!lookupOrderId.trim() || !lookupPhone.trim()) {
+      setError('Enter both the order ID and the phone number used at checkout.')
+      setOrders([])
+      return
+    }
+
     setLoading(true)
     setError(null)
-
     try {
-      const searchValue = query !== undefined && query !== '' ? query : searchQuery
-      const data = user?.email
-        ? await getOrders(user.email)
-        : searchValue.includes('|')
-          ? await getOrders({ orderId: searchValue.split('|', 2)[0], phone: searchValue.split('|', 2)[1] })
-          : []
+      const data = await getOrders({ orderId: lookupOrderId.trim(), phone: lookupPhone.trim() })
       setOrders(data)
+      if (!data.length) setError('No matching order found. Check the order ID and checkout phone number.')
     } catch (err) {
-      console.warn('Using fallback orders due to network/server:', err.message)
-      setError(err.message)
+      console.warn('Order lookup failed:', err.message)
+      setError(err.message || 'Unable to search orders. Please try again.')
       setOrders([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRefreshOrders = () => {
+    if (user?.email) {
+      handleOrderSearch({ preventDefault: () => {} })
+      return
+    }
+    if (lookupOrderId.trim() && lookupPhone.trim()) {
+      handleOrderSearch({ preventDefault: () => {} })
     }
   }
 
@@ -67,6 +94,13 @@ export default function OrdersPage() {
   useEffect(() => {
     if (!user?.email) return undefined
     return startOrderStatusWatcher(user.email, 8000, setOrders)
+  }, [user?.email])
+
+  useEffect(() => {
+    if (user?.email) return
+    setOrders([])
+    setLoading(false)
+    setError(null)
   }, [user?.email])
 
   const getStepProgress = (currentStatus) => {
@@ -110,28 +144,37 @@ export default function OrdersPage() {
 
         {/* Guest & Registered Customer Order Lookup Bar */}
         <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-          <label className="text-xs font-bold text-slate-700 block">🔍 Order Lookup (For Guest & Registered Customers)</label>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              fetchOrders(searchQuery)
-            }}
-            className="flex flex-col sm:flex-row gap-2"
-          >
-            <input
-              type="text"
-              placeholder="Order ID|phone (e.g. BM-abc123|8085700750)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-orange-500"
-            />
+          <label className="text-xs font-bold text-slate-700 block">🔍 Order Lookup {user?.email ? '(Your account orders)' : '(Guest order: enter both details)'}</label>
+          <form onSubmit={handleOrderSearch} className="flex flex-col sm:flex-row gap-2">
+            {!user?.email && <>
+              <input
+                type="text"
+                required
+                aria-label="Order ID"
+                placeholder="Order ID (e.g. BM-79da0f13-...)"
+                value={lookupOrderId}
+                onChange={(e) => setLookupOrderId(e.target.value)}
+                className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-orange-500"
+              />
+              <input
+                type="tel"
+                required
+                aria-label="Phone number used at checkout"
+                placeholder="Phone used at checkout"
+                value={lookupPhone}
+                onChange={(e) => setLookupPhone(e.target.value)}
+                className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:border-orange-500"
+              />
+            </>}
             <button
               type="submit"
+              disabled={loading}
               className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-2 rounded-xl text-xs transition shadow-sm"
             >
-              Search Order
+              {loading ? 'Searching…' : 'Search Order'}
             </button>
           </form>
+          {!user?.email && <p className="text-[11px] text-slate-500">Use the phone number you entered at checkout. Both fields are required to protect your order details.</p>}
         </div>
 
         {loading ? (
@@ -141,8 +184,10 @@ export default function OrdersPage() {
         ) : !orders.length ? (
           <div className="py-12 text-center">
             {error ? <p className="mb-3 text-sm font-semibold text-rose-600">{error}</p> : null}
-            <p className="text-xl font-bold text-slate-800">No orders found</p>
-            <p className="mt-2 text-sm text-slate-500">Order something fresh from our menu!</p>
+            {!error && <>
+              <p className="text-xl font-bold text-slate-800">No orders found</p>
+              <p className="mt-2 text-sm text-slate-500">{user?.email ? 'No orders are linked to your account yet.' : 'Enter your order ID and checkout phone number above to find a guest order.'}</p>
+            </>}
             <Link to="/product" className="mt-5 inline-block rounded-full bg-orange-500 px-6 py-3 font-bold text-white transition hover:bg-orange-600">
               Browse Menu
             </Link>
@@ -230,7 +275,7 @@ export default function OrdersPage() {
                           </span>
 
                           <button
-                            onClick={fetchOrders}
+                            onClick={handleRefreshOrders}
                             className="text-xs text-orange-600 hover:text-orange-700 font-black flex items-center gap-1 transition-transform active:scale-95 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded-full border border-orange-200"
                             title="Refresh live status from kitchen"
                           >
