@@ -276,6 +276,7 @@ async function saveOrder(body, verifiedPayment = false) {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
+      id: crypto.randomUUID(),
       orderId: verifiedPayment ? orderId : `BM-${crypto.randomUUID()}`,
       customer: customer || {},
       amount: calculated.finalPayableTotal, // AUTHORITATIVE SERVER RECALCULATED TOTAL
@@ -344,6 +345,7 @@ async function createPosOrder(body, authUser) {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
+      id: crypto.randomUUID(),
       orderId,
       customer: { ...customer, orderType: customer.orderType || 'COUNTER' },
       amount: total,
