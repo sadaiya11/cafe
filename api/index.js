@@ -304,8 +304,6 @@ async function saveOrder(body, verifiedPayment = false) {
         size: item.sizeLabel || item.size || 'standard',
         quantity: Number(item.quantity),
         price: Number(item.price), // AUTHORITATIVE UNIT PRICE
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       }))),
     })
     if (itemResult.status >= 400) return itemResult
@@ -375,8 +373,6 @@ async function createPosOrder(body, authUser) {
       size: item.sizeLabel || item.size,
       quantity: item.quantity,
       price: item.price,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
     }))),
   })
   if (itemResult.status >= 400) return itemResult
