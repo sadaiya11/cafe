@@ -261,9 +261,11 @@ export default function CheckoutPage() {
           currency: 'INR',
         }),
       })
-      if (!response.ok) throw new Error('Backend payment endpoint is not running on Vercel.')
+      const order = await response.json().catch(() => ({}))
 
-      const order = await response.json()
+      if (!response.ok) {
+        throw new Error(order.error || `Payment API request failed (HTTP ${response.status}). Check Vercel function logs and environment variables.`)
+      }
 
       if (order.error) {
         throw new Error(order.error)
