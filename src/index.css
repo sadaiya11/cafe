@@ -1,10 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  font-family: Inter, 'Segoe UI', sans-serif;
+  font-family: 'Roboto', 'Arial', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #e2e8f0;
+  color: #f1f5f9;
+  --brand-blue: #006491;
+  --brand-blue-light: #38bdf8;
+  --brand-red: #e31837;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
   background-color: #020817;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -26,6 +32,33 @@ body {
     radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 30%),
     linear-gradient(135deg, #020817 0%, #0f172a 35%, #111827 100%);
 }
+
+@layer base {
+  body {
+    color: var(--text-primary);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary);
+  }
+
+  p, small, label {
+    color: var(--text-secondary);
+  }
+
+  a:not([class*='text-']) {
+    color: var(--brand-blue-light);
+  }
+
+  a:hover {
+    color: #7dd3fc;
+  }
+}
+
+/* Brand-inspired text utility colors */
+.text-brand-blue { color: var(--brand-blue-light); }
+.text-brand-red { color: #fb7185; }
+.text-muted { color: var(--text-muted); }
 
 * {
   box-sizing: border-box;
