@@ -53,6 +53,21 @@ export async function loginUser({ email, password }) {
   return data
 }
 
+/** Exchange a verified Supabase Google session for the café API customer token. */
+export async function googleLogin(accessToken) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accessToken }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.error || 'Google sign-in failed.')
+  }
+  return data
+}
+
 export async function logoutUser() {
   const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
     method: 'POST',

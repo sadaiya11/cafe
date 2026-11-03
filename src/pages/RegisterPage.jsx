@@ -28,8 +28,8 @@ export default function RegisterPage() {
       return
     }
 
-    if (password.length < 4) {
-      setErrorNotice('Password must be at least 4 characters long.')
+    if (password.trim().length < 6) {
+      setErrorNotice('Password must be at least 6 characters long.')
       return
     }
 
@@ -111,6 +111,7 @@ export default function RegisterPage() {
             <input
               type="password"
               required
+              minLength={6}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-orange-400 focus:bg-white text-sm"

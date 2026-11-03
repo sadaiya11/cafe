@@ -116,8 +116,8 @@ export default function ProfilePage() {
       return
     }
 
-    if (newPassword.trim().length < 4) {
-      setPasswordNotice({ type: 'error', message: 'New password must be at least 4 characters long.' })
+    if (newPassword.trim().length < 6) {
+      setPasswordNotice({ type: 'error', message: 'New password must be at least 6 characters long.' })
       return
     }
 
@@ -451,6 +451,7 @@ export default function ProfilePage() {
                 <input
                   type="password"
                   required
+                  minLength={6}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
@@ -463,6 +464,7 @@ export default function ProfilePage() {
                 <input
                   type="password"
                   required
+                  minLength={6}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"

@@ -150,8 +150,8 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase()
-    if (password.trim().length < 12) {
-      return res.status(400).json({ error: 'Password must be at least 12 characters long.' })
+    if (password.trim().length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' })
     }
 
     const requestedRole = String(role || 'CUSTOMER').toUpperCase()
@@ -237,6 +237,69 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error)
     res.status(500).json({ error: 'Failed to authenticate user', details: error.message })
+  }
+})
+
+// Exchange a verified Supabase Google access token for the existing café API JWT.
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const accessToken = String(req.body?.accessToken || '').trim()
+    if (!accessToken) {
+      return res.status(400).json({ error: 'Google access token is required.' })
+    }
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      return res.status(503).json({ error: 'Google authentication is not configured on the server.' })
+    }
+
+    const supabaseResponse = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        apikey: process.env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+    const authUser = await supabaseResponse.json().catch(() => null)
+
+    if (!supabaseResponse.ok || !authUser?.id || !authUser?.email) {
+      return res.status(401).json({ error: 'Google authentication could not be verified. Please try again.' })
+    }
+
+    const isGoogleIdentity =
+      authUser.app_metadata?.provider === 'google' ||
+      authUser.identities?.some((identity) => identity.provider === 'google')
+    if (!isGoogleIdentity || !authUser.email_confirmed_at) {
+      return res.status(401).json({ error: 'Please sign in with a verified Google account.' })
+    }
+
+    const email = String(authUser.email).trim().toLowerCase()
+    let user = await prisma.user.findUnique({ where: { email } })
+
+    // Google sign-in is customer-only. It must never grant or impersonate staff/admin access.
+    if (user && String(user.role).toUpperCase() !== 'CUSTOMER') {
+      return res.status(403).json({ error: 'This email is registered for store staff. Please use the staff login.' })
+    }
+
+    if (!user) {
+      const metadata = authUser.user_metadata || {}
+      const name = String(metadata.full_name || metadata.name || email.split('@')[0]).trim()
+      user = await prisma.user.create({
+        data: {
+          name: name || 'Customer',
+          email,
+          password: null,
+          role: 'CUSTOMER',
+        },
+      })
+    }
+
+    return res.json({
+      success: true,
+      message: 'Google sign-in successful.',
+      token: signAccessToken(user),
+      user: sanitizeUser(user),
+    })
+  } catch (error) {
+    console.error('Google login error:', error)
+    return res.status(500).json({ error: 'Unable to complete Google sign-in. Please try again.' })
   }
 })
 
@@ -540,8 +603,8 @@ app.post('/api/auth/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Email, token, and a new password are required.' })
     }
 
-    if (newPassword.trim().length < 12) {
-      return res.status(400).json({ error: 'New password must be at least 12 characters long.' })
+    if (newPassword.trim().length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long.' })
     }
 
     const normalizedEmail = email.trim().toLowerCase()
@@ -593,8 +656,8 @@ app.put('/api/auth/change-password', authenticateRequest, async (req, res) => {
       return res.status(400).json({ error: 'Incorrect current password. Please try again or use email reset.' })
     }
 
-    if (newPassword.trim().length < 12) {
-      return res.status(400).json({ error: 'New password must be at least 12 characters long.' })
+    if (newPassword.trim().length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long.' })
     }
 
     await prisma.user.update({

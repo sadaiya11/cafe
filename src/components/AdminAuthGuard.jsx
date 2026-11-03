@@ -85,8 +85,8 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
       return
     }
 
-    if (regPassword.trim().length < 12) {
-      setErrorNotice('Password must be at least 12 characters long.')
+    if (regPassword.trim().length < 6) {
+      setErrorNotice('Password must be at least 6 characters long.')
       return
     }
 
@@ -219,6 +219,7 @@ export default function AdminAuthGuard({ children, target = 'admin' }) {
               <input
                 type="password"
                 required
+                minLength={6}
                 placeholder="••••••••"
                 value={regPassword}
                 onChange={(e) => setRegPassword(e.target.value)}

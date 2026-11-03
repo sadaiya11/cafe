@@ -4,6 +4,7 @@ import TopNavigation from './TopNavigation'
 import ProtectedRoute from './ProtectedRoute'
 import CustomerNotificationToast from './CustomerNotificationToast'
 import LoginPage from '../pages/LoginPage'
+import GoogleAuthCallbackPage from '../pages/GoogleAuthCallbackPage'
 import RegisterPage from '../pages/RegisterPage'
 import ForgotPasswordPage from '../pages/ForgotPasswordPage'
 import ResetPasswordPage from '../pages/ResetPasswordPage'
@@ -72,6 +73,7 @@ export default function PublicLayout() {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/offers" element={<InfoPage title="Special Offers" description="Enjoy the best combo deals, family packs, and chef specials prepared fresh for you." />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/callback" element={<GoogleAuthCallbackPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />

@@ -14,6 +14,7 @@ dist-ssr
 .env
 backend/.env
 client ka supabase
+client_secret_*.json
 
 # Editor directories and files
 .vscode/*
