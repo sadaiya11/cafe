@@ -766,6 +766,70 @@ async function registerAuthUser(body) {
   }
 }
 
+async function googleLoginAuth(body) {
+  const accessToken = String(body?.accessToken || '').trim()
+  if (!accessToken) return { status: 400, body: { error: 'Google access token is required.' } }
+
+  const { url } = getSupabaseConfig()
+  const anonKey = process.env.SUPABASE_ANON_KEY
+  if (!url || !anonKey) {
+    return { status: 503, body: { error: 'Google authentication is not configured on the server.' } }
+  }
+
+  const authResponse = await fetch(`${url}/auth/v1/user`, {
+    headers: { apikey: anonKey, Authorization: `Bearer ${accessToken}` },
+  })
+  const authUser = await authResponse.json().catch(() => null)
+  if (!authResponse.ok || !authUser?.id || !authUser?.email) {
+    return { status: 401, body: { error: 'Google authentication could not be verified. Please try again.' } }
+  }
+
+  const isGoogleIdentity = authUser.app_metadata?.provider === 'google'
+    || authUser.identities?.some((identity) => identity.provider === 'google')
+  if (!isGoogleIdentity || !authUser.email_confirmed_at) {
+    return { status: 401, body: { error: 'Please sign in with a verified Google account.' } }
+  }
+
+  const email = String(authUser.email).trim().toLowerCase()
+  const existing = await supabaseRequest(`users?email=eq.${encodeURIComponent(email)}&select=*`)
+  if (existing.status >= 400) return existing
+
+  let user = Array.isArray(existing.body) ? existing.body[0] : null
+  if (user && String(user.role).toUpperCase() !== 'CUSTOMER') {
+    return { status: 403, body: { error: 'This email is registered for store staff. Please use the staff login.' } }
+  }
+
+  if (!user) {
+    const metadata = authUser.user_metadata || {}
+    const name = String(metadata.full_name || metadata.name || email.split('@')[0]).trim() || 'Customer'
+    const created = await supabaseRequest('users?select=*', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        id: crypto.randomUUID(),
+        name,
+        email,
+        password: null,
+        role: 'CUSTOMER',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }),
+    })
+    if (created.status >= 400) return created
+    user = Array.isArray(created.body) ? created.body[0] : created.body
+  }
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      message: 'Google sign-in successful.',
+      token: signAccessToken(user),
+      user: sanitizeUser(user),
+    },
+  }
+}
+
 async function loginAuthUser(body) {
   const { email, password } = body || {}
   if (!email || !email.trim() || !password || !password.trim()) {
@@ -1669,8 +1733,10 @@ export default async function handler(req, res) {
       return json(res, 200, { success: true })
     }
 
-    const result = route.endsWith('/auth/register') && req.method === 'POST'
-      ? await registerAuthUser(req.body || {})
+    const result = route.endsWith('/auth/google') && req.method === 'POST'
+      ? await googleLoginAuth(req.body || {})
+      : route.endsWith('/auth/register') && req.method === 'POST'
+        ? await registerAuthUser(req.body || {})
       : route.endsWith('/auth/login') && req.method === 'POST'
         ? await loginAuthUser(req.body || {})
         : route.endsWith('/admin/users') && req.method === 'GET'
