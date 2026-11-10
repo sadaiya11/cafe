@@ -88,7 +88,6 @@ export default function AdminSidebar({
     <aside className="w-full md:w-64 bg-[#0f172a] border-r border-slate-800 flex flex-col justify-between shrink-0 p-4 min-h-[calc(100vh-73px)]">
       <div className="space-y-6">
         
-        {/* Navigation Category Heading */}
         <div>
           <p className="px-3 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
             Management
